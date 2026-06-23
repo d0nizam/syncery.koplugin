@@ -19,7 +19,7 @@
 
 **Cross-device reading progress, annotations, metadata, and render-settings sync for KOReader.**
 
-Syncery synchronises per-device reading data across all your KOReader devices — via Syncthing or cloud storage (Dropbox/WebDAV/FTP). A 3-way merge engine resolves concurrent annotation edits, a Trash Bin recovers deleted ones, and per-field merge keeps progress, metadata, and render settings in step across devices.
+Syncery synchronises per-device reading data across all your KOReader devices — via Syncthing or cloud storage (Dropbox/WebDAV/FTP).
 
 **New here?** Start with the **[Setup &amp; Sync Guide](SETUP.md)** — how to set up Syncthing or cloud sync from scratch.
 
