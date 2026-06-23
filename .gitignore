@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Build artifacts
+*.zip
+*.tar.gz
+.build/
+
+# Python tooling (tools/i18n.py)
+__pycache__/
+*.pyc
+
+# Development copies (pristine baselines / diffs)
+*.pristine
+
+# Test artifact recreated by the spec runner (never committed)
+/syncery/
