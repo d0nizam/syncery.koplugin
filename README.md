@@ -685,6 +685,16 @@ Syncthing is enabled but has no API key or folder:
 
 ---
 
+## Acknowledgements
+
+The **Annotation Browser** is inspired by [xblain/annotationsviewer.koplugin](https://github.com/xblain/annotationsviewer.koplugin) — the idea of browsing annotations across all books in a single view was pioneered there. Syncery's version extends that concept to show annotations from every device side by side.
+
+## See also
+
+[**d0nizam/kosyncthing_plus.koplugin**](https://github.com/d0nizam/kosyncthing_plus.koplugin) — KOSyncthing+ is a KOReader plugin that embeds a fully managed Syncthing daemon right inside your e-reader.
+
+---
+
 ## License
 
 AGPL-3.0 — see [LICENSE](LICENSE)
