@@ -668,7 +668,7 @@ The **Annotation Browser** is inspired by [xblain/annotationsviewer.koplugin](ht
 
 ## See also
 
-[**d0nizam/kosyncthing_plus.koplugin**](https://github.com/d0nizam/kosyncthing_plus.koplugin) — KOSyncthing+ is a KOReader plugin that embeds a fully managed Syncthing daemon right inside your e-reader.
+[**d0nizam/kosyncthing_plus.koplugin**](https://github.com/d0nizam/kosyncthing_plus.koplugin) - KOSyncthing+ is a KOReader plugin that embeds a fully managed Syncthing daemon right inside your e-reader.
 
 ---
 
