@@ -9,18 +9,20 @@
 #                       to each GitHub Release.  (KOReader loads only directories
 #                       whose name ends in `.koplugin`; a flat zip would unpack
 #                       to `syncery_koplugin/` with an underscore and NOT load.)
-#   make build-full  -> syncery_koplugin_full.zip — the public source tree with
-#                       files at the archive ROOT (unwrapped, the way the repo
-#                       looks): runtime + spec + tools + Makefile + assets +
-#                       .github + .gitignore + README + CHANGELOG + LICENSE.
+#   make build-full  -> syncery.koplugin-main.zip — the public source tree,
+#                       WRAPPED in a top-level `syncery.koplugin-main/` folder
+#                       (matching GitHub's "Download ZIP" of the main branch):
+#                       runtime + spec + tools + Makefile + assets + .github +
+#                       .gitignore + README + SETUP + CHANGELOG + LICENSE.
 #   make clean       -> remove both.
 #
 # Run from the repository root (the plugin directory).  Built from the working
 # tree, not git, so uncommitted changes are included.
 
 ZIP_NAME = syncery_koplugin.zip
-ZIP_FULL = syncery_koplugin_full.zip
+ZIP_FULL = syncery.koplugin-main.zip
 PKG_DIR  = syncery.koplugin
+PKG_DIR_FULL = syncery.koplugin-main
 STAGE    = .build
 
 # RUNTIME — exactly what KOReader loads (the lean release).
@@ -49,9 +51,12 @@ build:
 	@echo ">> Done: $(ZIP_NAME)"
 
 build-full:
-	@echo ">> Building $(ZIP_FULL) (public source, files at archive root)"
-	@rm -f $(ZIP_FULL)
-	@zip -r -X -q $(ZIP_FULL) $(RUNTIME) $(PUBLIC_EXTRA) $(ZIP_EXCLUDES)
+	@echo ">> Building $(ZIP_FULL) (public source, WRAPPED in $(PKG_DIR_FULL)/)"
+	@rm -rf $(STAGE) $(ZIP_FULL)
+	@mkdir -p $(STAGE)/$(PKG_DIR_FULL)
+	@cp -r $(RUNTIME) $(PUBLIC_EXTRA) $(STAGE)/$(PKG_DIR_FULL)/
+	@cd $(STAGE) && zip -r -X -q ../$(ZIP_FULL) $(PKG_DIR_FULL) $(ZIP_EXCLUDES)
+	@rm -rf $(STAGE)
 	@echo ">> Done: $(ZIP_FULL)"
 
 clean:
