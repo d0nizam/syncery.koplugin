@@ -279,6 +279,9 @@ local function recent_merges_lines(journal, format_ts)
             if pulled > 0 or pushed > 0 then
                 body = body .. string.format(", pulled %d / pushed %d", pulled, pushed)
             end
+            if latest.metadata_changed and latest.metadata_changed > 0 then
+                body = body .. string.format(", %d metadata", latest.metadata_changed)
+            end
             if latest.annotations_before ~= nil or latest.annotations_after ~= nil then
                 body = body .. string.format(", %s->%s alive",
                     tostring(latest.annotations_before or "?"),
@@ -359,6 +362,16 @@ local function storage_integrity_lines(integrity)
             tostring(integrity.tombstone_count) .. " recorded")
     end
 
+    -- Metadata tombstones: cleared metadata fields recorded in this book's synced
+    -- store (a cleared rating/note/collection/custom prop).  Same signal as the
+    -- annotation tombstones above, for the metadata block.  Shown only when > 0.
+    -- The key is wider than the kv column, so format it explicitly (colon).
+    if integrity.metadata_tombstone_count ~= nil
+            and integrity.metadata_tombstone_count > 0 then
+        lines[#lines + 1] = "  Metadata tombstones: "
+            .. tostring(integrity.metadata_tombstone_count) .. " recorded"
+    end
+
     -- .stignore: only applicable in SDR mode with a configured Syncthing folder.
     local stignore_val
     if not integrity.stignore_applicable then
@@ -431,6 +444,21 @@ function DiagnosticSnapshot.count_tombstones(store_data)
     if type(anns) == "table" then
         for _key, ann in pairs(anns) do
             if type(ann) == "table" and ann.deleted == true then n = n + 1 end
+        end
+    end
+    return n
+end
+
+
+-- Count cleared metadata fields (tombstones) in the shared store's metadata
+-- block.  Parallel to count_tombstones (annotations): the analogue of "deleted
+-- highlights came back" is "a cleared rating/collection came back".  Defensive.
+function DiagnosticSnapshot.count_metadata_tombstones(store_data)
+    local n = 0
+    local md = type(store_data) == "table" and store_data.metadata
+    if type(md) == "table" then
+        for _field, entry in pairs(md) do
+            if type(entry) == "table" and entry.deleted == true then n = n + 1 end
         end
     end
     return n

@@ -39,6 +39,7 @@ local Button          = require("ui/widget/button")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local CheckButton     = require("ui/widget/checkbutton")
 local Device          = require("device")
+local FocusManager    = require("ui/widget/focusmanager")
 local Font            = require("ui/font")
 local FrameContainer  = require("ui/widget/container/framecontainer")
 local Geom            = require("ui/geometry")
@@ -52,6 +53,7 @@ local TitleBar        = require("ui/widget/titlebar")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
+local util            = require("util")
 
 local Screen = Device.screen
 
@@ -61,7 +63,7 @@ local SZ_TITLE = 22   -- option / checkbox / recap / reassurance titles
 local SZ_SUB   = 18   -- subtitles, descriptions, reassurance body
 
 
-local WizardWindow = InputContainer:extend{
+local WizardWindow = FocusManager:extend{
     desc   = nil,    -- current step description (data)
     _shown = false,
     -- We paint an opaque full-screen backdrop (see _build), so tell UIManager
@@ -78,6 +80,20 @@ function WizardWindow:init()
     self.panel_w  = math.floor(self.screen_w * 0.92)
     self.inner_w  = self.panel_w - 2 * Size.border.window - 2 * Size.padding.large
     self.dimen = Geom:new{ x = 0, y = 0, w = self.screen_w, h = self.screen_h }
+
+    -- Non-touch reachability.  FocusManager:_init (run by Widget:new BEFORE this
+    -- init) already wired the D-pad navigation key_events, gated on
+    -- Device:hasDPad().  Here we add hardware Back/Menu -> Close so a keyboard /
+    -- 5-way user can abandon the wizard: the title-bar close (✕) cannot be
+    -- reached without touch.  Mirrors ButtonDialog's dismissable pattern and is
+    -- gated on Device:hasKeys(), so a pure-touch device registers nothing new
+    -- (it still dismisses via the ✕ / tap exactly as before).
+    if Device:hasKeys() then
+        local back_group = util.tableDeepCopy(Device.input.group.Back)
+        table.insert(back_group, Device:hasFewKeys() and "Left" or "Menu")
+        self.key_events.Close = { { back_group } }
+    end
+
     if self.desc then self:_build() end
 end
 
@@ -90,6 +106,12 @@ function WizardWindow:_build()
     local vspan   = Size.span.vertical_default
     local fg_soft = Blitbuffer.COLOR_DARK_GRAY
     local sep     = Blitbuffer.COLOR_LIGHT_GRAY
+    -- Focusable widgets in display order, for D-pad navigation on non-touch
+    -- (published as self.layout at the end).  Each choice / checkbox is its own
+    -- single-column row; the footer's Back/primary share one row (Left/Right
+    -- moves between them).  Inert on touch -- FocusManager reads this only on a
+    -- D-pad key event, which pure-touch devices never raise.
+    local focus_rows = {}
 
     -- ----- title bar: two-line title + ✕ close + divider -------------------
     local title = TitleBar:new{
@@ -135,7 +157,7 @@ function WizardWindow:_build()
         end
 
         if it.type == "button_row" then
-            table.insert(body, Button:new{
+            local btn = Button:new{
                 text                 = it.text,
                 width                = iw,
                 align                = "left",
@@ -144,7 +166,9 @@ function WizardWindow:_build()
                 text_font_size       = SZ_TITLE,
                 avoid_text_truncation = true,
                 callback             = it.on_tap,
-            })
+            }
+            table.insert(body, btn)
+            focus_rows[#focus_rows + 1] = { btn }
             if it.sub and #it.sub > 0 then
                 table.insert(body, TextBoxWidget:new{
                     text = it.sub, face = Font:getFace("cfont", SZ_SUB),
@@ -153,7 +177,7 @@ function WizardWindow:_build()
             end
 
         elseif it.type == "check_row" then
-            table.insert(body, CheckButton:new{
+            local cb = CheckButton:new{
                 text          = it.text,
                 checked       = it.checked == true,
                 width         = iw,
@@ -162,7 +186,9 @@ function WizardWindow:_build()
                 checkmark_face = Font:getFace("cfont", SZ_TITLE),
                 parent        = self,
                 callback      = it.on_tap,
-            })
+            }
+            table.insert(body, cb)
+            focus_rows[#focus_rows + 1] = { cb }
             if it.sub and #it.sub > 0 then
                 table.insert(body, TextBoxWidget:new{
                     text = it.sub, face = Font:getFace("cfont", SZ_SUB),
@@ -212,6 +238,7 @@ function WizardWindow:_build()
                 text = b.label, radius = Size.radius.button, callback = b.on_tap,
             }
         end
+        focus_rows[#focus_rows + 1] = btns   -- footer Back/primary: one focus row
         local row = HorizontalGroup:new{ align = "center" }
         if #btns == 1 then
             table.insert(row, btns[1])
@@ -269,6 +296,13 @@ function WizardWindow:_build()
             frame,
         },
     }
+
+    -- Publish the focusable grid for FocusManager.  Rebuilt on every :setStep,
+    -- so reset the cursor to the first cell to keep self.selected within the new
+    -- layout's bounds.  No focusables (shouldn't happen -- every step has a
+    -- footer) -> nil so FocusManager's navigation no-ops cleanly.
+    self.layout   = (#focus_rows > 0) and focus_rows or nil
+    self.selected = { x = 1, y = 1 }
 end
 
 
@@ -298,6 +332,19 @@ end
 
 function WizardWindow:onCloseWidget()
     self._shown = false
+    return true
+end
+
+
+-- Hardware Back/Menu (key_events.Close, wired in init for devices with physical
+-- keys) -> the same action as the title-bar ✕: invoke the current step's
+-- on_dismiss, which persists what is needed and tears the window down.  This is
+-- the non-touch exit the GitHub issue asked for.  On a pure-touch device the
+-- key_event is never registered, so this never fires there.
+function WizardWindow:onClose()
+    if self.desc and self.desc.on_dismiss then
+        self.desc.on_dismiss()
+    end
     return true
 end
 

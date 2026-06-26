@@ -185,7 +185,7 @@ end
 --- G_reader_settings key.  Optional `master_field` makes the item
 --- disabled when the named plugin field is false; in that
 --- case long-press explains "enable the master first".
-function H.makeBoolToggle(plugin, field, key, label, help, master_field)
+function H.makeBoolToggle(plugin, field, key, label, help, master_field, after_set)
     local item = {
         text           = label,
         help_text      = help,
@@ -196,6 +196,7 @@ function H.makeBoolToggle(plugin, field, key, label, help, master_field)
             if G_reader_settings then
                 G_reader_settings:saveSetting(key, plugin[field])
             end
+            if after_set then after_set(plugin[field]) end
             if tmi then tmi:updateItems() end
         end,
     }

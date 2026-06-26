@@ -179,6 +179,13 @@ function Transport.new(opts)
     local select_provider          = opts.select_provider or CloudProviders.select
     local ui_cloudstorage_resolver = opts.ui_cloudstorage_resolver
     local sync_service             = opts.sync_service  -- test injection (syncservice fallback)
+    -- Optional hook fired when the cloud server RESPONDS to a sync (the merge
+    -- callback running == the provider downloaded the remote object == the
+    -- server is reachable).  Production wires this to
+    -- CloudReachability:note_success, keeping the reachability verdict fresh
+    -- and caching the server IP at a proven network-up moment.  nil in tests.
+    local on_server_responded      = opts.on_server_responded
+    local on_reconciled            = opts.on_reconciled
 
     --- Resolve the active provider + selection metadata for THIS call.
     --- Cheap: building a provider object is just closures, and each
@@ -279,10 +286,12 @@ function Transport.new(opts)
         if kind == "annotations" then
             return SyncServiceAdapter.make_annotation_sync_callback({
                 canonical_path = AnnPaths.shared_annotations_path(book_file),
+                on_reconciled  = on_reconciled,
             })
         elseif kind == "progress" then
             return SyncServiceAdapter.make_progress_sync_callback({
                 canonical_path = ProgressPaths.shared_progress_path(book_file),
+                on_reconciled  = on_reconciled,
             })
         end
         return nil
@@ -343,6 +352,19 @@ function Transport.new(opts)
         -- merge; offline: deferred rerun, F2). The provider's callback
         -- fires exactly once per its interface contract.
         local merge_cb = _build_merge_callback(kind, book_file)
+        -- The merge callback runs only AFTER the provider downloaded the remote
+        -- object (Cloud:sync invokes it with the income file) -- i.e. the server
+        -- responded, so it is reachable.  Wrap it to signal that, then defer to
+        -- the real merge UNCHANGED.  Only when there is both a callback to wrap
+        -- and a hook to fire; the signal is pcall-isolated so a reachability
+        -- bug can never break the merge.
+        if merge_cb and on_server_responded then
+            local _raw_merge_cb = merge_cb
+            merge_cb = function(...)
+                pcall(on_server_responded)
+                return _raw_merge_cb(...)
+            end
+        end
         local ok_call, call_err = pcall(function()
             provider.sync(server, path, merge_cb, function(ok, err)
                 callback(ok, err, nil)

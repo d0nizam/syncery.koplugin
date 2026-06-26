@@ -138,6 +138,40 @@ end
 --- @param device_id string|nil Stamp on bumped fields.
 --- @param device_label string|nil Stamp on bumped fields.
 --- @return table The metadata section.
+--- Materialize a CLEARED field as a tombstone before the merge: present in the
+--- ancestor, absent now, toggle ON.  A toggled-OFF field is also absent but must
+--- NOT become a tombstone (that is what keeps per-field filtering safe -- absent =
+--- no-opinion for an off field).  Carry an existing tombstone forward without
+--- re-stamping, but COPY it (don't alias the ancestor table).  datetime_updated =
+--- "" matches the other non-status fields so a clear-vs-edit conflict resolves via
+--- the tombstone-on-tie tiebreak, not an artifactual "now" > "".  No-op when there
+--- is no ancestor (first sync / fresh backfill) or the ancestor never carried the
+--- field.  `enabled` is the field's sync toggle, passed explicitly (key->toggle is
+--- NOT 1:1 -- summary_note uses toggles.summary).
+function MetadataBridge._detect_field_clear(metadata, ancestor_md, key, enabled,
+                                            device_id, device_label)
+    if not enabled then return end
+    if metadata[key] ~= nil then return end          -- read a value -> not a clear
+    local anc = ancestor_md and ancestor_md[key]
+    if type(anc) ~= "table" then return end          -- never synced -> nothing to clear
+    if anc.deleted == true then
+        metadata[key] = {                            -- carry forward, no re-stamp (copy)
+            deleted          = true,
+            datetime_updated = anc.datetime_updated,
+            device_id        = anc.device_id,
+            device_label     = anc.device_label,
+        }
+    elseif anc.value ~= nil then
+        metadata[key] = {                            -- fresh tombstone
+            deleted          = true,
+            datetime_updated = "",
+            device_id        = device_id,
+            device_label     = device_label,
+        }
+    end
+end
+
+
 function MetadataBridge.read_from_ui(ui, book_file, toggles, device_id, device_label, ancestor_md)
     if not ui or not ui.doc_settings then return {} end
     toggles = toggles or MetadataBridge.make_toggles_from_plugin(nil)
@@ -192,6 +226,15 @@ function MetadataBridge.read_from_ui(ui, book_file, toggles, device_id, device_l
             metadata, "custom",
             MetadataBridge._read_custom(ui),
             "", device_id, device_label)
+    end
+
+    -- Cleared fields -> tombstones (status/handmade excluded: status is
+    -- lattice-merged and always a value; handmade is receive-only).
+    if ancestor_md then
+        MetadataBridge._detect_field_clear(metadata, ancestor_md, "rating",       toggles.rating,      device_id, device_label)
+        MetadataBridge._detect_field_clear(metadata, ancestor_md, "summary_note", toggles.summary,     device_id, device_label)
+        MetadataBridge._detect_field_clear(metadata, ancestor_md, "collections",  toggles.collections, device_id, device_label)
+        MetadataBridge._detect_field_clear(metadata, ancestor_md, "custom",       toggles.custom,      device_id, device_label)
     end
 
     -- handmade_toc is intentionally NOT read here: it is receive-only on
@@ -256,33 +299,52 @@ function MetadataBridge.apply_from_remote(ui, book_file, merged_metadata, toggle
             enabled = toggles.rating,
             read    = function(u, _bf) return MetadataBridge._read_rating(u) end,
             apply   = MetadataBridge._apply_rating,
+            clear   = function(u, bf) return MetadataBridge._apply_rating_clear(u, bf) end,
         },
         summary_note = {
             enabled = toggles.summary,
             read    = function(u, _bf) return MetadataBridge._read_summary_note(u) end,
             apply   = MetadataBridge._apply_summary_note,
+            -- F6: a cleared note is nil (KOReader bookstatuswidget:585-586), not "".
+            clear   = function(u, bf) return MetadataBridge._apply_summary_note(u, bf, nil) end,
         },
         collections = {
             enabled = toggles.collections,
             read    = function(_u, bf) return MetadataBridge._read_collections(bf) end,
             apply   = MetadataBridge._apply_collections,
+            clear   = function(u, bf) return MetadataBridge._apply_collections(u, bf, {}) end,
         },
         custom = {
             enabled = toggles.custom,
             read    = function(u, _bf) return MetadataBridge._read_custom(u) end,
             apply   = MetadataBridge._apply_custom,
+            clear   = function(u, bf) return MetadataBridge._apply_custom_clear(u, bf) end,
         },
         handmade_toc = {
             enabled = toggles.handmade and not ui.paging,
             read    = nil,   -- receive-only: no collected current to compare
             apply   = MetadataBridge._apply_handmade_toc,
+            -- no clear: handmade is never tombstoned (excluded from clear-detection)
         },
     }
 
     for field_name, handler in pairs(handlers) do
         if handler.enabled then
             local entry = merged_metadata[field_name]
-            if type(entry) == "table" and entry.value ~= nil then
+            if type(entry) == "table" and entry.deleted == true then
+                -- CLEAR: apply the field's clear path, value-gated so a device that
+                -- is already clear no-ops and never re-reports a change.
+                if handler.clear then
+                    local current = handler.read and handler.read(ui, book_file)
+                    if current ~= nil then
+                        local changed = handler.clear(ui, book_file)
+                        if changed then
+                            any_change = true
+                            applied[field_name] = true
+                        end
+                    end
+                end
+            elseif type(entry) == "table" and entry.value ~= nil then
                 local do_apply
                 if handler.read then
                     local current = handler.read(ui, book_file)
@@ -369,8 +431,18 @@ end
 --- valueless.  Used so 3-way comparisons are by VALUE -- set/table-valued
 --- fields (collections, custom) compare order-independently via
 --- _fingerprint_value, not by table identity.
+-- A tombstone (cleared field { deleted = true, ... }, no `value`) must read as a
+-- DISTINCT present state in the 3-way pick, never as nil -- else _three_way_field
+-- treats a clear as "no opinion" and resurrects it in BOTH directions (a local
+-- clear lost via fl==nil->remote; a remote clear ignored via fr==nil->local).  A
+-- module-level identity constant is collision-free because _entry_fingerprint is
+-- consumed ONLY for `==` in _three_way_field; it can never equal a value's string
+-- fingerprint (what _fingerprint_value always returns).
+MetadataBridge._TOMBSTONE_FP = {}
 function MetadataBridge._entry_fingerprint(entry)
-    if type(entry) ~= "table" or entry.value == nil then return nil end
+    if type(entry) ~= "table" then return nil end
+    if entry.deleted == true then return MetadataBridge._TOMBSTONE_FP end
+    if entry.value == nil then return nil end
     return MetadataBridge._fingerprint_value(entry.value)
 end
 
@@ -393,6 +465,16 @@ function MetadataBridge._metadata_tiebreak(field_name, entry_l, entry_r)
         return (dl > dr) and entry_l or entry_r
     end
 
+    -- A clear (tombstone) beats a concurrent live edit on a tie.  These fields
+    -- carry datetime "", so every genuine conflict reaches this tie;
+    -- deletion-precedence mirrors the annotation pick (_pick_newer_of_two).  Two
+    -- values, or two tombstones, fall through to the device-id tiebreak below.
+    local l_del = type(entry_l) == "table" and entry_l.deleted == true
+    local r_del = type(entry_r) == "table" and entry_r.deleted == true
+    if l_del ~= r_del then
+        return l_del and entry_l or entry_r
+    end
+
     local il = (type(entry_l) == "table" and entry_l.device_id) or ""
     local ir = (type(entry_r) == "table" and entry_r.device_id) or ""
     if il ~= ir then
@@ -409,7 +491,9 @@ end
 ---
 --- Absent semantics: an absent local field
 --- is "no opinion", NOT a deletion -- it adopts the remote value rather than
---- wiping it.  A clear is therefore not propagated in v1.
+--- wiping it.  A CLEAR is different from absent: it is materialized as a tombstone
+--- ({ deleted = true }) in read_from_ui (toggled-on non-status fields only), which
+--- _entry_fingerprint maps to a distinct sentinel, so the clear DOES propagate.
 function MetadataBridge._three_way_field(field_name, entry_l, entry_r, entry_a)
     local fl = MetadataBridge._entry_fingerprint(entry_l)
     local fr = MetadataBridge._entry_fingerprint(entry_r)
@@ -592,6 +676,20 @@ function MetadataBridge._apply_rating(ui, book_file, remote_value)
     summary.rating = remote_value
     ui.doc_settings:saveSetting("summary", summary)
     MetadataBridge._update_booklist_cache(book_file, "rating", remote_value)
+    return true
+end
+
+
+-- Clear the rating (a rating tombstone was applied): summary.rating = nil + cache 0
+-- -- the exact state KOReader's own un-rate produces (bookstatuswidget setStar
+-- :220-222: summary.rating = nil; setBookInfoCacheProperty(file, "rating", 0)).
+-- Kept separate so _apply_rating's value path stays byte-identical.
+function MetadataBridge._apply_rating_clear(ui, book_file)
+    local summary = ui.doc_settings:readSetting("summary") or {}
+    if summary.rating == nil then return false end
+    summary.rating = nil
+    ui.doc_settings:saveSetting("summary", summary)
+    MetadataBridge._update_booklist_cache(book_file, "rating", 0)
     return true
 end
 
@@ -903,6 +1001,90 @@ function MetadataBridge._apply_custom(ui, book_file, remote_value)
         MetadataBridge._refresh_custom_display(ui, book_file, fields)
     end
     return changed
+end
+
+
+-- Clear all user-editable custom props (a custom tombstone was applied): set each
+-- override to nil so the book reverts to its embedded metadata on every device.
+-- Cannot reuse _write_custom_props (it skips nil/"" -- sets but never clears).
+-- Mirrors KOReader's reset (filemanagerbookinfo setCustomMetadata, prop_value=nil).
+function MetadataBridge._apply_custom_clear(ui, book_file)
+    if not ui or not ui.doc_settings then return false end
+    if type(ui.doc_settings.getCustomMetadataFile) ~= "function" then return false end
+    local ok_mod, DocSettings = pcall(require, "docsettings")
+    if not ok_mod or type(DocSettings) ~= "table"
+            or type(DocSettings.openSettingsFile) ~= "function" then
+        return false
+    end
+    -- No custom file -> nothing to clear.
+    local ok_path, path = pcall(ui.doc_settings.getCustomMetadataFile, ui.doc_settings)
+    if not ok_path or not path then return false end
+    local ok_open, custom = pcall(DocSettings.openSettingsFile, path)
+    if not ok_open or type(custom) ~= "table"
+            or type(custom.readSetting) ~= "function"
+            or type(custom.saveSetting) ~= "function"
+            or type(custom.flushCustomMetadata) ~= "function" then
+        return false
+    end
+    local custom_props = custom:readSetting("custom_props")
+    if type(custom_props) ~= "table" then return false end
+    local changed = false
+    for _, k in ipairs({ "title", "authors", "series", "series_index",
+                         "language", "keywords", "description" }) do
+        if custom_props[k] ~= nil then custom_props[k] = nil; changed = true end
+    end
+    if not changed then return false end
+
+    -- F5: restore the OPEN reader's live doc_props for the cleared fields from the
+    -- sidecar's doc_props backup (the original metadata saved when the override was
+    -- first created), so the reader shows the original WITHOUT a reopen -- mirrors
+    -- KOReader's reset (filemanagerbookinfo:573,582).  Read from the in-memory
+    -- `custom` instance now, before the file is removed.  Guarded: ui.doc_props may
+    -- be absent (headless).  A key absent from the backup -> nil (no original).
+    if type(ui.doc_props) == "table" then
+        local backup = custom:readSetting("doc_props")
+        if type(backup) == "table" then
+            for _, k in ipairs({ "title", "authors", "series", "series_index",
+                                 "language", "keywords", "description" }) do
+                ui.doc_props[k] = backup[k]
+            end
+            ui.doc_props.display_title = backup.title or ui.doc_props.display_title
+        end
+    end
+
+    -- F7: mirror KOReader's setCustomMetadata (filemanagerbookinfo:560-563).  When
+    -- no custom prop remains -- the COMMON case, since this nils all 7 -- KOReader
+    -- DELETES the sidecar instead of flushing an empty one.  removeSidecarDir only
+    -- removes an EMPTY dir (rmdir semantics), so the book's .sdr (still holding
+    -- metadata.lua + Syncery's annotations) is left intact: no data loss.
+    local persisted
+    if next(custom_props) == nil then
+        persisted = (os.remove(custom.sidecar_file) == true)
+        local ok_u, util = pcall(require, "util")
+        if ok_u and util and util.splitFilePathName and DocSettings.removeSidecarDir then
+            local dir = util.splitFilePathName(custom.sidecar_file)
+            pcall(DocSettings.removeSidecarDir, dir)
+        end
+        -- reset the open book's cached custom-file path (pointed at the deleted file)
+        pcall(ui.doc_settings.getCustomMetadataFile, ui.doc_settings, true)
+    else
+        custom:saveSetting("custom_props", custom_props)
+        local doc_path = ui.doc_settings.data and ui.doc_settings.data.doc_path
+        local ok_flush = pcall(custom.flushCustomMetadata, custom, doc_path)
+        persisted = ok_flush == true or ok_flush == nil   -- F1: honest reporting
+    end
+
+    -- Evict the FileManager metadata cache so it re-reads (file gone / emptied).
+    if book_file and book_file ~= "" then
+        local ok_event, Event     = pcall(require, "ui/event")
+        local ok_uim,   UIManager = pcall(require, "ui/uimanager")
+        if ok_event and ok_uim and Event and UIManager then
+            pcall(function()
+                UIManager:broadcastEvent(Event:new("InvalidateMetadataCache", book_file))
+            end)
+        end
+    end
+    return persisted
 end
 
 

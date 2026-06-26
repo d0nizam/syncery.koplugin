@@ -45,11 +45,9 @@
 --     bound — rewrites it keeping only the newest MAX_ENTRIES lines.
 --     The common case (under the bound) does only the cheap append.
 --
---   * SCHEMA-VERSIONED.  The payoff is "diagnosable months later", so
---     the entry format is a long-lived contract.  Every entry carries
---     its own `schema_version` (per-line, not a file header — a
---     pure-append writer can't maintain a header), plus a flat,
---     explicit shape the eventual UI can read stably.
+--   * STABLE SHAPE.  The payoff is "diagnosable months later", so the
+--     entry format is a long-lived contract: a flat, explicit shape the
+--     eventual UI can read stably.
 --
 -- THE FAILED / NO-OP QUESTION:
 --
@@ -89,7 +87,7 @@
 --   would write a line and evict the meaningful entries.  Conflicts, skips,
 --   and errors land even under an autosave or jump; a wipe_failsafe (or any
 --   non-"empty") skip lands; manual / close / suspend always land.  Only a
---   meaningful sync EVENT lands.  A v3 entry (no `kind`) reads back as
+--   meaningful sync EVENT lands.  An entry with no `kind` reads back as
 --   "annotation".
 --
 -- UI IS A LATER PASS.  This module is the WRITER + schema + the
@@ -110,13 +108,6 @@ local SyncJournal = {}
 -- ----------------------------------------------------------------------------
 -- Constants
 -- ----------------------------------------------------------------------------
-
-
---- Entry-format version.  Bumped only when the flat entry shape below
---- changes in a way the eventual UI would need to know about.  Stamped
---- on every entry (per-line) so a reader can handle a mixed-version
---- file after an upgrade.
-SyncJournal.SCHEMA_VERSION = 4
 
 
 --- Ring-buffer bound.  After an append leaves the file longer than
@@ -214,8 +205,7 @@ end
 
 --- Append one already-built entry table to the journal, then trim.
 ---
---- The entry is stamped with `schema_version` here (callers don't
---- supply it) and encoded to a single compact JSON line.  Append uses
+--- The entry is encoded to a single compact JSON line.  Append uses
 --- `io.open(path, "a")` — no rename, Android-safe by construction.
 --- Bounding happens in the SAME call: `trim_if_needed` runs straight
 --- after, so the file is never left over the ring bound.
@@ -246,9 +236,6 @@ function SyncJournal.append(entry, opts)
         logger.warn("Syncery sync_journal: could not resolve journal path")
         return false
     end
-
-    -- Stamp the schema version here so callers never have to.
-    entry.schema_version = SyncJournal.SCHEMA_VERSION
 
     local ok_enc, encoded = pcall(json.encode, entry)
     if not ok_enc or type(encoded) ~= "string" then
@@ -293,10 +280,11 @@ end
 ---   "skipped" — a failsafe (e.g. the wipe failsafe) declined to merge.
 ---   "noop"    — the merge ran cleanly but changed nothing at all.
 ---   "merged"  — the merge ran cleanly and moved data.
-local function classify_outcome(result, ann_merged, tombstones, conflicts)
+local function classify_outcome(result, ann_merged, tombstones, conflicts, metadata_changed)
     if result.error and not result.ok then return "failed" end
     if result.skipped then return "skipped" end
-    if ann_merged == 0 and tombstones == 0 and conflicts == 0 then
+    if ann_merged == 0 and tombstones == 0 and conflicts == 0
+            and (metadata_changed or 0) == 0 then
         return "noop"
     end
     return "merged"
@@ -371,7 +359,7 @@ function SyncJournal.record_merge(book_id, result, transport, opts)
     local tombstones = tonumber(result.tombstones_compacted) or 0
     local conflicts  = tonumber(result.conflicts_merged) or 0
 
-    -- v3: record only fields with signal.  Zero-valued counts are OMITTED
+    -- Record only fields with signal.  Zero-valued counts are OMITTED
     -- (nz, module-level), keeping a LOGGED line short -- e.g. a push-only
     -- merge omits its zero pulled / conflicts / tombstones; the single
     -- reader (diagnostic recent_merges_lines) already defaults an absent
@@ -394,16 +382,19 @@ function SyncJournal.record_merge(book_id, result, transport, opts)
     -- cross-device absence), not only on this line.  This does not contradict
     -- the empty->skipped label decision: that fixed the LABEL when
     -- logged, not whether to log.
-    local outcome = classify_outcome(result, ann_merged, tombstones, conflicts)
+    local md_changed = 0
+    if type(result.metadata_applied) == "table" then
+        for _ in pairs(result.metadata_applied) do md_changed = md_changed + 1 end
+    end
+    local outcome = classify_outcome(result, ann_merged, tombstones, conflicts, md_changed)
     if outcome == "noop" then return false end
     if outcome == "skipped" and result.skipped_reason == "empty" then
         return false
     end
 
     local entry = {
-        -- schema_version is stamped by append().
         timestamp          = clock(),           -- numeric epoch seconds
-        kind               = "annotation",      -- v4; readers default a missing kind to this
+        kind               = "annotation",      -- readers default a missing kind to this
         book_id            = book_id or "unknown",
         outcome            = outcome,
         trigger            = opts.trigger,       -- what started this; may be nil
@@ -412,6 +403,7 @@ function SyncJournal.record_merge(book_id, result, transport, opts)
         annotations_pushed = nz(result.annotations_pushed),
         conflicts_resolved = nz(conflicts),
         tombstones_applied = nz(tombstones),
+        metadata_changed   = nz(md_changed),
         skipped_reason     = result.skipped_reason,  -- may be nil
         error              = result.error,       -- failure reason; may be nil
     }
@@ -495,7 +487,6 @@ function SyncJournal.record_progress(book_id, result, transport, opts)
     end
 
     local entry = {
-        -- schema_version is stamped by append().
         timestamp          = clock(),           -- numeric epoch seconds
         kind               = "progress",
         book_id            = book_id or "unknown",
@@ -541,7 +532,6 @@ function SyncJournal.record_jump(book_id, opts)
     local clock = opts.clock or os.time
 
     local entry = {
-        -- schema_version is stamped by append().
         timestamp            = clock(),          -- numeric epoch seconds
         kind                 = "progress",
         book_id              = book_id or "unknown",
@@ -577,7 +567,6 @@ function SyncJournal.record_status_resolve(book_id, status_from, status_to, opts
     local clock = opts.clock or os.time
 
     local entry = {
-        -- schema_version is stamped by append().
         timestamp   = clock(),
         kind        = "status",
         book_id     = book_id or "unknown",
@@ -612,7 +601,6 @@ function SyncJournal.record_bulk(book_id, opts)
     local clock = opts.clock or os.time
 
     local entry = {
-        -- schema_version is stamped by append().
         timestamp = clock(),
         kind      = "bulk",
         book_id   = book_id or "unknown",

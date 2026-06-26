@@ -74,6 +74,8 @@ Timers.SLOTS = {
     "_debounce_scan_action",
     "_firstrun_action",
     "_gc_action",
+    "_open_cloud_pull",          -- scheduled in main.lua (onReaderReady — open-moment cloud pull)
+    "_post_pull_check",          -- scheduled in main.lua (on_reconciled — re-check after a cloud pull reconciles)
     "_resume_recheck_action",    -- scheduled in syncery_lifecycle/init.lua (resume re-probe)
     "_sync_annotations_action",  -- scheduled in main.lua (onAnnotationsModified)
     "_sync_bookmarks_action",

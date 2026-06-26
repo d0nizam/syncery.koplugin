@@ -316,4 +316,14 @@ function JsonStore._reset_platform_cache()
 end
 
 
+--- Encode a Lua table to a canonical JSON string (sorted keys) -- the SAME
+--- serialization JsonStore.write uses on disk.  Returns nil on failure.  Lets
+--- callers stage in-memory canonical content without a temp file.
+function JsonStore.encode(data_table)
+    local ok, encoded = pcall(rapidjson.encode, data_table, { sort_keys = true })
+    if not ok or type(encoded) ~= "string" then return nil end
+    return encoded
+end
+
+
 return JsonStore
