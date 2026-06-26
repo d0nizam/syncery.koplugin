@@ -365,8 +365,11 @@ function SyncOrchestrator.sync_book_with_providers(ui, book_file, options, provi
     -- annotations are FILTERED (S3): un-materialized remote pulls are kept
     -- OUT of the ancestor so the next merge does not synthesize a phantom
     -- deletion for an annotation that has not yet reached this device's live
-    -- list.  metadata/render_settings are not keyed-deletion-detected, so
-    -- they stay as written.  See _materialized_last_sync_annotations.
+    -- list (see _materialized_last_sync_annotations).  metadata IS now
+    -- keyed-deletion-detected (cleared fields -> tombstones), but unlike
+    -- annotations its apply is IN-SESSION, so after apply the live state already
+    -- equals merged_metadata -- the raw merged ancestor equals the live state and
+    -- needs no materialization.  render_settings is not deletion-detected.
     local last_sync_state = {
         schema_version  = 1,
         annotations     = SyncOrchestrator._materialized_last_sync_annotations(

@@ -1,6 +1,6 @@
 # Test Suite
 
-109 tests across 92 spec files. No KOReader installation required — all
+123 spec files, all passing. No KOReader installation required — all
 platform modules are stubbed by the mock layer.
 
 ## Running
@@ -77,7 +77,7 @@ luajit spec/run_tests.lua
 ### Expected output
 
 ```
-Done: 109 spec(s) passed, 0 failed
+Done: 123 spec(s) passed, 0 failed
 ```
 
 ## Spec files
@@ -85,6 +85,7 @@ Done: 109 spec(s) passed, 0 failed
 | File | What it covers | Tests |
 |------|---------------|-------|
 | `annotation_state_store_device_agnostic_spec` | State-store JSON read/write round-trips with device-agnostic annotation keys | 11 |
+| `book_enum_spec` | Book enumeration / ordering for the annotation browser | 6 |
 | `booklist_actions_spec` | Book-list action dispatching, filtering, selection | 23 |
 | `booklist_init_spec` | Book-list initialisation and empty-state handling | 9 |
 | `booklist_scan_spec` | Book-list filesystem scan: directory traversal, metadata extraction, error paths | 49 |
@@ -95,6 +96,7 @@ Done: 109 spec(s) passed, 0 failed
 | `cloud_progress_merge_callback_spec` | Cloud sync progress merge callback contract | 46 |
 | `cloud_providers_spec` | Cloud provider enumeration, credential storage | 33 |
 | `cloud_quiet_toast_spec` | Cloud quiet-mode toast suppression | 13 |
+| `cloud_reachability_spec` | Async cached cloud-reachability verdict: probe, defer, warm-blocking | 75 |
 | `cloud_staging_spec` | Cloud staging area: pending changes, conflict detection | 19 |
 | `cloud_sync_service_adapter_spec` | Cloud sync service adapter: init, sync, error handling | 23 |
 | `cloud_then_syncthing_chained_merge_spec` | Chained merge: cloud then Syncthing pipeline | 25 |
@@ -110,6 +112,7 @@ Done: 109 spec(s) passed, 0 failed
 | `firstrun_wizard_presenter_spec` | First-run wizard: presenter logic, page navigation | 94 |
 | `firstrun_wizard_spec` | First-run wizard: full lifecycle, consent flow | 149 |
 | `folder_discovery_spec` | Sync folder discovery from filesystem | 46 |
+| `get_device_id_spec` | Stable per-device identifier generation | 7 |
 | `hash_location_finder_spec` | Hash-based storage location discovery | 31 |
 | `identity_spec` | Device identity generation and persistence | 32 |
 | `json_store_android_spec` | JSON store: Android-specific path handling | 24 |
@@ -126,6 +129,7 @@ Done: 109 spec(s) passed, 0 failed
 | `materialized_last_sync_spec` | Materialised last-sync timestamp persistence | 15 |
 | `menu_advanced_section_spec` | Advanced settings menu section | 21 |
 | `menu_annotations_section_spec` | Annotation settings menu section | 72 |
+| `menu_db_sync_section_spec` | Statistics/Vocabulary sync menu: master + sub-toggles, interval row | 33 |
 | `menu_helpers_parity_spec` | Menu helper parity between UI and test stubs | 23 |
 | `menu_helpers_spec` | Menu helper functions: option building, callback wiring | 36 |
 | `menu_init_spec` | Menu initialisation and submenu registration | 37 |
@@ -165,6 +169,7 @@ Done: 109 spec(s) passed, 0 failed
 | `progress_orchestrator_spec` | Progress orchestration and scheduling | 66 |
 | `progress_paths_spec` | Progress path construction and discovery | 25 |
 | `progress_state_store_device_agnostic_spec` | State-store JSON read/write round-trips with device-agnostic progress keys | 9 |
+| `reachability_spec` | Synchronous reachability host/port extraction and probe | 43 |
 | `render_settings_bridge_spec` | Render settings bridge: KOReader ↔ syncery | 54 |
 | `reset_completeness_spec` | Reset completeness: force re-sync on reset | 10 |
 | `scan_target_spec` | Scan target: directory-level sync triggers | 22 |
@@ -177,9 +182,10 @@ Done: 109 spec(s) passed, 0 failed
 | `stignore_spec` | `.stignore` file management and pattern handling | 64 |
 | `storage_mode_spec` | Storage mode selection and persistence | 27 |
 | `strip_book_extension_spec` | Book extension stripping from paths | 15 |
-| `sync_journal_panel_spec` | Sync journal browser panel UI | 79 |
 | `sync_journal_spec` | Sync journal read/write and query | 58 |
 | `sync_orchestrator_spec` | Top-level sync orchestration | 53 |
+| `syncery_db_sync_spec` | Statistics/Vocabulary sync trigger: gating, event dispatch, honesty surfacing | 43 |
+| `syncery_db_sync_unify_spec` | Point Statistics/Vocabulary plugins at Syncery's cloud server | 18 |
 | `syncery_settings_spec` | Settings registry and persistence | 67 |
 | `syncthing_config_xml_provider_spec` | Syncthing config.xml provider: parsing, folder discovery | 24 |
 | `syncthing_connection_probe_spec` | Syncthing connection probe and health check | 15 |
@@ -190,12 +196,16 @@ Done: 109 spec(s) passed, 0 failed
 | `tombstones_spec` | Tombstone records: creation, expiry, cleanup | 51 |
 | `transport_contract_spec` | Transport contract: interface conformance | 70 |
 | `transport_http_client_spec` | HTTP client: request lifecycle, sink capture, error classification, timeout | 85 |
+| `transport_label_spec` | Human-readable transport labels | 4 |
 | `transport_orchestrator_spec` | Transport orchestration and retry | 75 |
 | `transport_plugin_sync_spec` | Transport plugin sync: full pipeline | 14 |
 | `transport_policy_spec` | Transport policy: selection, ordering, fallback | 56 |
 | `transport_safe_callback_spec` | Safe callback: error-bound async callback | 25 |
 | `transports_factory_spec` | Transport factory: provider↔transport wiring | 21 |
 | `trash_spec` | Trash management: move, restore, expire | 29 |
+| `update_spec` | Self-update from GitHub releases: version compare, install flow | 30 |
+| `viewer_source_annotations_path_spec` | Annotation browser: per-book annotations path resolution | 12 |
+| `viewer_source_spec` | Annotation browser data source: notes-for-book, filtering | 38 |
 | `wifi_backoff_spec` | Wi-Fi backoff: exponential backoff, cooldown, reset | 32 |
 | **Total** | | **109** |
 

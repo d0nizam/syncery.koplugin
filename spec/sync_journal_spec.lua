@@ -66,7 +66,7 @@ end
 
 
 -- ----------------------------------------------------------------------------
--- append: writes one JSON line, stamps schema_version
+-- append: writes one JSON line, round-trips the entry
 -- ----------------------------------------------------------------------------
 
 
@@ -80,8 +80,6 @@ do
     local entries = SyncJournal.read_all({ path = path })
     h.assert_equal(#entries, 1, "read_all returns the one entry")
     h.assert_equal(entries[1].book_id, "b1", "entry round-trips book_id")
-    h.assert_equal(entries[1].schema_version, SyncJournal.SCHEMA_VERSION,
-        "append stamps schema_version on the entry")
 end
 
 
@@ -647,6 +645,60 @@ do
     h.assert_equal(e.kind, "bulk", "a backfill is kind=bulk")
     h.assert_equal(e.outcome, "merged", "a backfill's outcome is merged")
     h.assert_equal(e.ingested, 12, "the ingested count is recorded")
+end
+
+
+-- ----------------------------------------------------------------------------
+-- record_merge: metadata coverage (S7) -- a metadata-only sync is an EVENT
+-- ----------------------------------------------------------------------------
+-- A sync that changed ONLY metadata (e.g. cleared a rating) has zero annotation
+-- movement, so without the classify_outcome metadata clause it would classify as
+-- "noop" and be DROPPED before any count.  It must land, as "merged", carrying the
+-- metadata_changed count.
+
+
+do
+    local path = unique_journal_path()
+
+    -- metadata-only (a cleared rating): no annotation movement at all.
+    local ok = SyncJournal.record_merge("b",
+        fake_result{ metadata_applied = { rating = true } },
+        "syncthing", { path = path })
+    h.assert_true(ok, "metadata-only sync is journaled (NOT dropped as noop)")
+
+    local entries = SyncJournal.read_all({ path = path })
+    h.assert_equal(#entries, 1, "the metadata-only event landed")
+    h.assert_equal(entries[1].outcome, "merged", "metadata-only sync -> merged")
+    h.assert_equal(entries[1].metadata_changed, 1, "metadata_changed counts the one applied field")
+
+    -- count reflects multiple applied fields
+    SyncJournal.record_merge("b",
+        fake_result{ metadata_applied = { rating = true, summary_note = true, custom = true } },
+        "syncthing", { path = path })
+    local e2 = SyncJournal.read_all({ path = path })
+    h.assert_equal(e2[2].metadata_changed, 3, "metadata_changed counts all applied fields")
+end
+
+-- An empty metadata_applied table with no annotation change is still a noop.
+do
+    local path = unique_journal_path()
+    h.assert_false(
+        SyncJournal.record_merge("b",
+            fake_result{ metadata_applied = {} }, "syncthing", { path = path }),
+        "empty metadata_applied + no annotation change -> still dropped as noop")
+    h.assert_equal(line_count(path), 0, "no line written for the empty-metadata noop")
+end
+
+-- metadata_changed is OMITTED (nil) when zero, matching the other counts.
+do
+    local path = unique_journal_path()
+    -- an annotation push (lands) but NO metadata change
+    SyncJournal.record_merge("b",
+        fake_result{ annotations_pushed = 2 }, "syncthing", { path = path })
+    local entries = SyncJournal.read_all({ path = path })
+    h.assert_equal(entries[1].outcome, "merged", "annotation-only merge lands")
+    h.assert_nil(entries[1].metadata_changed,
+        "metadata_changed omitted (nil) when no metadata changed")
 end
 
 

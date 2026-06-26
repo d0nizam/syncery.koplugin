@@ -254,6 +254,11 @@ function M.make_fake_plugin(opts)
         jump_mode             = opts.jump_mode             or "ask",
         sync_summary          = opts.sync_summary          or false,
         sync_render_settings  = opts.sync_render_settings  or false,
+
+        -- trigger-only DB sync (Statistics / Vocabulary)
+        db_sync_enabled  = opts.db_sync_enabled  or false,
+        db_sync_stats    = opts.db_sync_stats    ~= false,
+        db_sync_vocab    = opts.db_sync_vocab    ~= false,
         sync_font_face        = opts.sync_font_face         or false,
         sync_font_size        = opts.sync_font_size         or false,
         sync_line_spacing     = opts.sync_line_spacing      or false,

@@ -111,8 +111,107 @@ local sanitize_for_lua = Util.sanitize_for_lua
 local Transports = require("syncery_transports/init")
 local Stignore   = require("syncery_transports/stignore")
 local Settings   = require("syncery_settings")
+local DbSync     = require("syncery_db_sync")
+local ConfigUnify = require("syncery_db_sync_unify")   -- Tier 2 unified-config decision core
+local DataStorage = require("datastorage")             -- Tier 2: derive the plugins' `.sync` paths
 local PluginSync = require("syncery_transports/plugin_sync")
 local CloudStorageProvider = require("syncery_transports/cloud/providers/cloudstorage_provider")
+
+-- ----------------------------------------------------------------------------
+-- Periodic DB-sync timer (Statistics / Vocabulary Builder), opt-in via the
+-- DB-sync master toggle.  MODULE-LEVEL (not an instance method) so the schedule
+-- survives FileManager<->Reader navigation: PluginLoader dofile's main.lua once,
+-- so this state outlives the plugin instances that come and go as you move
+-- between the reader and the file manager.  Modelled on the core AutoStandby
+-- plugin (timer state on the module, not the instance) -- the established
+-- KOReader idiom for a background task that must persist across navigation.
+-- Both sibling plugins load in either UI (not is_doc_only) and their cloud sync
+-- is whole-DB (book-independent), so the tick works in the reader AND the file
+-- manager -- the point of this design: DB sync no longer needs a book open, only
+-- KOReader running.  (Genuinely impossible only when KOReader is fully quit /
+-- the device is suspended -- Syncery has no background daemon; the sync runs
+-- inside KOReader's event loop.)  Not unit-loadable (needs the UI) -> device-
+-- validated.
+local _db_sync_armed = false   -- is the module tick currently scheduled?
+-- The last actionable DB-sync issue surfaced this session (a stable signature
+-- string), so the periodic tick toasts a persistent issue ONCE, not every
+-- interval.  nil = nothing outstanding.  Module-level (shared across the reader
+-- and file-manager instances) so navigation doesn't reset the de-dupe.
+local _db_sync_last_surfaced = nil
+local _db_sync_tick            -- forward declaration (self-rescheduling)
+-- Dispatch a sibling plugin's declared sync action by Event name.  Uses
+-- broadcastEvent, NOT sendEvent: sendEvent only reaches the topmost non-toast
+-- widget, so a trigger from Syncery's own menu ("Sync now") or a background tick
+-- with any modal on top would miss the plugin entirely.  broadcastEvent reaches
+-- ALL window-level widgets (the plugin is a registerModule child of ReaderUI /
+-- FileManager, so ReaderUI:handleEvent propagates the event down to it),
+-- regardless of what is on top.  Used as DbSync.run's `send_event` dep.
+local function _dbSyncSendEvent(name)
+    UIManager:broadcastEvent(Event:new(name))
+end
+
+_db_sync_tick = function()
+    -- The tick has no instance, so resolve the LIVE active UI at fire time:
+    -- ReaderUI.instance in the reader, FileManager.instance in the file manager.
+    -- During a brief FM<->Reader transition both can be nil -> skip this tick and
+    -- re-arm (the next one resolves the settled UI).  Read via package.loaded to
+    -- avoid a circular require (both modules load long before any tick fires).
+    local RUI = package.loaded["apps/reader/readerui"]
+    local FM  = package.loaded["apps/filemanager/filemanager"]
+    local active_ui = (RUI and RUI.instance) or (FM and FM.instance)
+    if active_ui and Settings.get_db_sync_enabled() then
+        -- Gate on cloud reachability (a NON-BLOCKING cached verdict).  The
+        -- plugins' DB sync (ReaderStatistics / VocabBuilder -> cloudstorage:sync)
+        -- ALSO runs SYNCHRONOUSLY on the UI thread, so a no-internet tick would
+        -- freeze the UI exactly like a cloud upload.  Reuse the cloud-upload gate
+        -- on the live Syncery instance (isConnected link pre-gate + verdict); it
+        -- targets Syncery's server as an internet-up PROXY -- a different plugins'
+        -- server that's down is still a bounded socketutil hang, not the
+        -- catastrophic no-route freeze.  Absent instance / method -> don't gate
+        -- (fail open).  When gated out we skip the run but still re-arm below, so
+        -- the next interval retries.
+        local inst = active_ui.syncery
+        local reachable = (not inst)
+            or type(inst._isCloudReachable) ~= "function"
+            or inst:_isCloudReachable()
+        if reachable then
+            xpcall(function()
+                if inst and type(inst._unifyDbSyncConfig) == "function" then
+                    inst:_unifyDbSyncConfig()                  -- Tier 2: assert unified config first
+                end
+                local report = DbSync.run({ ui = active_ui, settings = Settings, gset = G_reader_settings, send_event = _dbSyncSendEvent })
+                if inst and type(inst._surfaceDbSyncReport) == "function" then
+                    inst:_surfaceDbSyncReport(report, false)   -- de-duped (periodic)
+                end
+            end, function(e) logger.warn("Syncery DB-sync tick failed:", e) end)
+        end
+    end
+    -- Re-arm while enabled; otherwise drop the schedule so a later toggle-on
+    -- (menu, or the next init) can restart it.
+    if Settings.get_db_sync_enabled() then
+        UIManager:scheduleIn(Settings.get_db_sync_interval_min() * 60, _db_sync_tick)
+    else
+        _db_sync_armed = false
+    end
+end
+
+-- Arm the module timer at most once.  init() calls this on EVERY plugin instance
+-- (reader and file manager), but a tick already running is left untouched -> the
+-- interval is never reset by navigation and never double-scheduled.
+local function _armDbSyncTimer()
+    if _db_sync_armed then return end
+    if not Settings.get_db_sync_enabled() then return end
+    _db_sync_armed = true
+    UIManager:scheduleIn(Settings.get_db_sync_interval_min() * 60, _db_sync_tick)
+end
+
+-- Stop the module timer immediately: drop any pending tick and clear the armed
+-- flag so a later arm (master toggle on, interval change, or next init) starts a
+-- fresh schedule.  Safe when nothing is scheduled (unschedule is a no-op).
+local function _disarmDbSyncTimer()
+    UIManager:unschedule(_db_sync_tick)
+    _db_sync_armed = false
+end
 local SyncthingProviders   = require("syncery_transports/syncthing/providers/init")
 local StorageMigration  = require("syncery_migration/storage_mode")
 local StorageMode       = require("syncery_storage_mode")
@@ -202,7 +301,7 @@ local WifiBackoff = require("syncery_lifecycle/wifi_backoff")
 -- Pure, dependency-injected "is the cloud server reachable now?" check.  Wired
 -- into the cloud-upload gate so an enabled-but-unreachable cloud DEFERS (via the
 -- backoff) instead of dispatching a UI-freezing synchronous WebDAV transfer.
-local Reachability = require("syncery_transports/cloud/reachability")
+local CloudReachability = require("syncery_transports/cloud/cloud_reachability")
 
 local _  = I18n.translate
 local _n = I18n.ngettext
@@ -490,6 +589,9 @@ local PREFERENCE_KEYS = {
     "syncery_syncthing_port", "syncery_syncthing_scheme",
     -- Cloud
     "syncery_use_cloud", "syncery_cloud_server", "syncery_cloud_upload_delay",
+    -- DB sync (Reading Statistics + Vocabulary Builder)
+    "syncery_db_sync_enabled", "syncery_db_sync_stats", "syncery_db_sync_vocab",
+    "syncery_db_sync_unify", "syncery_db_sync_interval_min",
 }
 
 -- FULL_PURGE_KEYS — PREFERENCE_KEYS plus this device's identity. Used by
@@ -697,6 +799,14 @@ function Syncery:init()
         self.sync_bookmarks        = read_bool("syncery_sync_bookmarks",        true)
         self.use_syncthing         = read_bool("syncery_use_syncthing",         false)
         self.use_cloud             = read_bool("syncery_use_cloud",             false)
+        -- Trigger-only sync of the sibling Statistics / Vocabulary plugins.
+        -- These live fields back the What's-synced toggles; syncery_db_sync
+        -- reads the matching G_reader_settings keys (which the toggles persist).
+        self.db_sync_enabled       = read_bool("syncery_db_sync_enabled",       false)
+        self.db_sync_stats         = read_bool("syncery_db_sync_stats",         true)
+        self.db_sync_vocab         = read_bool("syncery_db_sync_vocab",         true)
+        self.db_sync_unify         = read_bool("syncery_db_sync_unify",         false)
+        self.db_sync_interval_min  = Settings.get_db_sync_interval_min()
         self.jump_mode             = G_reader_settings:readSetting("syncery_jump_mode") or "ask"
         self.adapt_highlight_style = read_bool("syncery_adapt_highlight_style", false)
         self.sync_metadata         = read_bool("syncery_sync_metadata",          false)
@@ -806,6 +916,30 @@ function Syncery:init()
                 if ok then UIManager:broadcastEvent(ev) end
             end
         end,
+        -- Fired by the Cloud transport when the server RESPONDS to a sync (the
+        -- merge callback running == the remote object was downloaded).  Marks
+        -- the reachability verdict fresh and caches the server IP at that
+        -- proven network-up moment, so the cloud-upload gate's probe stays
+        -- non-blocking.  Guarded: the instance exists by the time a sync can
+        -- fire (both are built in init), but stay defensive.
+        on_server_responded = function()
+            if self._cloud_reachability then
+                self._cloud_reachability:note_success()
+            end
+        end,
+        -- A cloud PULL reconciled remote annotation data into the shared file
+        -- (this fires from inside the merge callback, the moment the download
+        -- landed and merged).  Re-run checkRemote so the orchestrator picks the
+        -- freshly-pulled data up and offers the [Reload] toast IN-SESSION --
+        -- even on a fresh device that had NO annotations before.  Without this
+        -- the pulled data sat in the shared file undelivered until a later
+        -- open (delivery lagged the pull by a full open/close cycle).
+        -- checkRemote self-guards on `destroyed` (a pull that lands during
+        -- teardown is a harmless no-op) and MtimeGate no-ops when the file did
+        -- not actually change, so an unchanged sync costs nothing.
+        on_reconciled = function()
+            self:_schedule("_post_pull_check", 0.5, function() self:checkRemote() end)
+        end,
         -- Resolver for hius07's "Cloud storage+" plugin, reached
         -- as a method on the live plugin instance (ui.cloudstorage:sync).
         -- Lazy + UI-independent: the transport gets a resolver, never the
@@ -866,6 +1000,79 @@ function Syncery:init()
         logger    = logger,
     }
 
+    -- Async cloud-reachability verdict.  Replaces the SYNCHRONOUS per-upload
+    -- DNS probe in `_isCloudReachable`: a cached verdict, moved by transfer
+    -- outcomes (note_success) + NetworkMgr events + a NON-BLOCKING connect
+    -- probe (settimeout(0)+connect polled with select(0) across UIManager
+    -- ticks), so the cloud-upload gate never blocks the UI thread on DNS.
+    -- DNS is kept off the probe path entirely: the only resolve is in
+    -- note_success (post-server-response, network proven up -> fast), and the
+    -- probe connects to the cached IP.  Socket/UIManager absent (headless) ->
+    -- probe I/O is nil -> the module fails OPEN, exactly like the old
+    -- synchronous path.  Read by `_isCloudReachable` (the cloud-upload gate) and
+    -- fed by `on_server_responded` (note_success) + the network event handlers.
+    local _cr_resolve, _cr_connect_start, _cr_connect_poll, _cr_connect_close, _cr_connect_blocking
+    local _cr_sok, _cr_socket = pcall(require, "socket")
+    if _cr_sok and _cr_socket then
+        _cr_resolve = function(host) return _cr_socket.dns.toip(host) end
+        _cr_connect_start = function(ip, port)
+            local s = _cr_socket.tcp()
+            if not s then return nil end
+            s:settimeout(0)                       -- non-blocking connect
+            local r, err = s:connect(ip, port)
+            -- in-progress reports "timeout"/"Operation already in progress";
+            -- an immediate hard error means we cannot probe this target.
+            if r == nil and err ~= "timeout"
+                    and err ~= "Operation already in progress" then
+                s:close(); return nil
+            end
+            return s
+        end
+        _cr_connect_poll = function(s)
+            local _, w = _cr_socket.select(nil, { s }, 0)   -- 0 = instant poll
+            if w[s] then
+                return s:getpeername() and "ok" or "fail"   -- writable: peer => connected
+            end
+            return "wait"
+        end
+        _cr_connect_close = function(s) pcall(function() s:close() end) end
+        -- BLOCKING bounded connect, used ONLY by warm_blocking() at teardown's
+        -- close-time push (a terminal moment with no future tick for the async
+        -- probe).  settimeout bounds it; it connects to the CACHED IP, so no DNS.
+        _cr_connect_blocking = function(ip, port, timeout)
+            local s = _cr_socket.tcp()
+            if not s then return false end
+            s:settimeout(timeout)
+            local r = s:connect(ip, port)
+            s:close()
+            return r == 1 or r == true
+        end
+    end
+    -- Seed the probe target from the persisted IP cache so it is non-blocking
+    -- from the FIRST call of the session (closes the per-session bootstrap
+    -- fail-open).  The module re-resolves + re-persists on host change / IP
+    -- staleness via note_success, so a stale or server-changed entry self-heals.
+    local _cr_ipcache = Settings.get_cloud_server_ip()
+    self._cloud_reachability = CloudReachability.new{
+        now           = Util.now,
+        get_server    = function() return Settings.get_cloud_server() end,
+        resolve       = _cr_resolve,
+        connect_start = _cr_connect_start,
+        connect_poll  = _cr_connect_poll,
+        connect_close = _cr_connect_close,
+        connect_blocking = _cr_connect_blocking,
+        schedule      = function(delay, fn)
+            if UIManager and UIManager.scheduleIn then
+                UIManager:scheduleIn(delay, fn)
+            end
+        end,
+        persist_ip    = function(host, ip)
+            Settings.set_cloud_server_ip(host, ip)
+        end,
+        initial_ip    = _cr_ipcache and _cr_ipcache.ip,
+        initial_host  = _cr_ipcache and _cr_ipcache.host,
+    }
+
     -- Tie into kosyncthing_plus's public API when it's present.  This is
     -- the cleanest way to:
     --   • have our `*.sync-conflict-*` JSON files excluded from the
@@ -874,6 +1081,10 @@ function Syncery:init()
     --     instead of waiting for the next book open or the next save.
     -- Safe no-op when KOSyncthing+ isn't installed.
     self:_setupKOSyncthingPlusIntegration()
+
+    -- Arm the periodic DB-sync timer (module-level; runs in the reader AND the
+    -- file manager, persists across navigation -- see the _db_sync_tick comment).
+    _armDbSyncTimer()
 end
 
 function Syncery:setStorageMode(mode)
@@ -1196,6 +1407,39 @@ function Syncery:onReaderReady()
         self:_schedule("_check_remote_action", 2.0, function()
             self:checkRemote()
         end)
+
+        -- Open-moment cloud PULL.  The bidirectional cloud sync is the only way
+        -- to DOWNLOAD a peer's data, and it normally rides the autosave upload,
+        -- which is debounced (cloud_upload_delay) -- on a short open/close that
+        -- flush lands only at teardown, too late to deliver this session.  Fire
+        -- an immediate pull on open instead: it reconciles remote annotations
+        -- into the shared file WHILE the book is open, and on_reconciled then
+        -- offers the [Reload] toast in-session -- even on a fresh device with no
+        -- local annotations (do_cloud_upload stages an in-memory empty envelope
+        -- so the pull runs).  Async (no UI freeze) and reachability-gated inside
+        -- _doCloudUpload; a cold probe simply defers to the cloud backoff, which
+        -- retries when reachable.
+        if self.use_cloud then
+            self:_schedule("_open_cloud_pull", 2.5, function()
+                local s = self:getCurrentState()
+                if s then self:_doCloudUpload(s) end
+            end)
+        end
+
+        -- Open-moment cloud PULL: download a peer's progress/annotations now,
+        -- instead of waiting for the debounced autosave upload (which on a
+        -- short open/close only flushes at teardown -- too late to deliver this
+        -- session).  The bidirectional sync reconciles remote data into the
+        -- shared file; on_reconciled then re-runs checkRemote and offers the
+        -- [Reload] toast IN-SESSION, even on a fresh device with no prior
+        -- annotations.  Async (no UI freeze) and reachability-gated inside
+        -- _doCloudUpload, which also no-ops when nothing changed.
+        if self.use_cloud then
+            self:_schedule("_open_cloud_pull", 2.5, function()
+                local s = self:getCurrentState()
+                if s then self:_doCloudUpload(s) end
+            end)
+        end
 
         self:_schedule("_autosave_action", 0.5, function()
             if (os.time() - (self.last_save_time or 0)) >= self.min_save_interval then
@@ -2541,10 +2785,107 @@ function Syncery:onCloseDocument()
     ActionBar.dismiss(self.ui)  -- cancel any open action bar (timer + touch zone)
     self._lifecycle:on_close_document()
 end
-function Syncery:onSuspend()        self._lifecycle:on_suspend()         end
+function Syncery:onSuspend()
+    self._lifecycle:on_suspend()
+end
 function Syncery:onResume()         self._lifecycle:on_resume()          end
 function Syncery:onPowerOff()       self._lifecycle:on_power_off()       end
 function Syncery:onQuit()           self._lifecycle:on_quit()            end
+
+-- Network transitions feed the cloud-reachability verdict (see
+-- _cloud_reachability).  A disconnect makes it unreachable instantly with no
+-- I/O; a connect drops it to "unknown" and re-verifies with a non-blocking
+-- probe.  KOReader broadcasts these on every link change (NetworkConnected /
+-- NetworkDisconnected in ui/network/manager).  Guarded for the (impossible in
+-- prod, defensive) case the instance is absent.
+function Syncery:onNetworkConnected()
+    if self._cloud_reachability then
+        self._cloud_reachability:on_network_connected()
+    end
+end
+function Syncery:onNetworkDisconnected()
+    if self._cloud_reachability then
+        self._cloud_reachability:on_network_disconnected()
+    end
+end
+
+-- Instance-facing wrapper over the module-level DB-sync timer so menu rows
+-- (which hold the plugin instance, not the module locals) can drive it.
+-- Reconciles the timer with the current settings (enabled + interval): drop any
+-- pending tick, then arm afresh if the master is on.  The master toggle calls it
+-- on change (ON -> arms; OFF -> the arm no-ops, so it stops), and the interval
+-- row calls it so a new cadence takes effect now rather than next cycle.
+function Syncery:_rearmDbSyncTimer()
+    _disarmDbSyncTimer()
+    _armDbSyncTimer()
+end
+
+-- Surface the ONE actionable DB-sync issue (something the user can fix: no cloud
+-- server set, or the Cloud storage+ plugin off) as a toast.  Deliberate or
+-- transient non-firing reasons stay silent.  `always` (a manual Sync now)
+-- surfaces every time the user asks; the periodic tick (always=false) de-dupes
+-- on a module-level signature so a persistent issue toasts once per session, not
+-- every interval.  Nothing actionable -> clear the signature so a later
+-- recurrence surfaces again.
+function Syncery:_surfaceDbSyncReport(report, always)
+    local summary = DbSync.actionable_summary(report)
+    if not summary then
+        _db_sync_last_surfaced = nil
+        return
+    end
+
+    local label = { statistics = _("Statistics"), vocabulary_builder = _("Vocabulary") }
+    local signature, msg
+    if summary.kind == "cloudstorage_absent" then
+        signature = "cloudstorage_absent"
+        msg = _("Vocab & Statistics not synced: enable the Cloud storage+ plugin.")
+    else  -- "no_server"
+        signature = "no_server:" .. table.concat(summary.dbs, ",")   -- ids: locale-stable
+        local names = {}
+        for _, id in ipairs(summary.dbs) do names[#names + 1] = label[id] or id end
+        msg = string.format(_("Not synced (no cloud server set): %s"),
+            table.concat(names, ", "))
+    end
+
+    if not always and signature == _db_sync_last_surfaced then
+        return   -- tick: this exact issue was already surfaced this session
+    end
+    _db_sync_last_surfaced = signature
+    Notify.notifyL2(msg)
+end
+
+-- Tier 2: when the unify sub-toggle is ON, point the stats and vocab plugins at
+-- Syncery's OWN cloud server (mutating their live settings field by reference --
+-- design §11.3) so all three sync to one place.  Idempotent + change-detected:
+-- a no-op when a plugin already points at the target; on a genuine change it
+-- overwrites the field and drops that DB's stale `.sync` so the next sync is a
+-- clean full re-sync.  Runs only for plugins that are LOADED (their settings
+-- table exists); an FTP or unset target is refused by ConfigUnify.decide.  Both
+-- gates (master + unify) are checked here, so callers may invoke it freely.
+function Syncery:_unifyDbSyncConfig()
+    if not Settings.get_db_sync_enabled() then return end   -- master gate
+    if not Settings.get_db_sync_unify()   then return end   -- Tier 2 opt-in (default OFF)
+    if not G_reader_settings then return end
+    local ui = self.ui
+    if not ui then return end
+    local target = Settings.get_cloud_server()
+    for _, db in ipairs(DbSync.DBS) do
+        if ui[db.ui_key] then                                -- plugin loaded -> its settings table exists
+            local tbl = G_reader_settings:readSetting(db.id) -- the plugin's live table (held by reference)
+            if type(tbl) == "table" then
+                local decision = ConfigUnify.decide(target, tbl[db.server_field])
+                if decision.action == "write" then
+                    local copy = {}                          -- shallow copy: don't alias Syncery's own descriptor
+                    for k, v in pairs(target) do copy[k] = v end
+                    tbl[db.server_field] = copy
+                    if decision.drop_sync then
+                        os.remove(DataStorage:getSettingsDir() .. "/" .. db.db_file .. ".sync")
+                    end
+                end
+            end
+        end
+    end
+end
 
 -- Close-time annotation delivery (G).  Fires on EVERY doc_settings save, so it
 -- guards _lifecycle (high-frequency, may precede init on edge paths) and is a
@@ -2566,6 +2907,12 @@ function Syncery:scheduleAutoSave()
 end
 
 function Syncery:syncNow()
+    -- Trigger the sibling plugins' own cloud sync first (Statistics /
+    -- Vocabulary Builder).  Transport-independent (they use their own cloud, not
+    -- Syncery's) and inert when the DB-sync master is OFF -- safe to run before
+    -- the transport guards below.
+    local _ok_dbrun, _db_report = pcall(DbSync.run, { ui = self.ui, settings = Settings, gset = G_reader_settings, send_event = _dbSyncSendEvent })
+    if _ok_dbrun then self:_surfaceDbSyncReport(_db_report, true) end   -- manual -> always answer
     -- Guard the silent no-op cases: "Sync now" is reachable by tap and by
     -- gesture, and with no transport (or nothing enabled to sync) the work
     -- below would do nothing visible.  Tell the user why instead of staying mute.
@@ -2681,42 +3028,37 @@ end
 -- `_isNetworkOnline` (which is link-only, `isConnected`): the cloud gate needs
 -- real reachability, because KOReader runs the WebDAV/Dropbox transfer
 -- SYNCHRONOUSLY on the UI thread — a link that's up but has no route, or a dead
--- server, freezes the UI for up to ~2 min.  Delegates to the pure
--- `Reachability.check` with real I/O injected:
---   A. `NetworkMgr:isOnline` (== `canResolveHostnames`, a real DNS probe);
---   B. a bounded TCP connect-then-close to the server's host:port (2 s).
--- Fails OPEN when NetworkMgr is absent (desktop / headless), exactly like
--- `_isNetworkOnline`; when luasocket is absent the probe I/O is nil and
--- `Reachability.check` fails open after A.  Syncthing keeps `_isNetworkOnline`
+-- server, freezes the UI for up to ~2 min.  But the OLD check was itself
+-- synchronous (a DNS probe on every upload, ~once a minute while reading — a
+-- perceptible stutter), so this now reads a CACHED async verdict instead:
+--   • a cheap, NON-BLOCKING link pre-gate (`isConnected`, link state only, no
+--     DNS) defers instantly when not associated — and stops a doomed cold-start
+--     transfer before any event/probe has run;
+--   • otherwise the verdict from `_cloud_reachability` (moved by transfer
+--     outcomes, NetworkConnected/Disconnected, and a non-blocking connect probe
+--     to a cached IP; DNS is kept off the probe path).
+-- Fails OPEN when NetworkMgr is absent (desktop / headless) or the instance is
+-- missing, exactly like before; the verdict itself fails open when its probe
+-- I/O (luasocket / UIManager) is unavailable.  Syncthing keeps `_isNetworkOnline`
 -- (it talks to localhost — internet reachability must NOT gate it).
 function Syncery:_isCloudReachable()
+    -- Cheap, NON-BLOCKING link pre-check.  `isConnected` reads link state only
+    -- (no DNS, unlike the old `isOnline`), so it stays off the blocking path.
+    -- Not even associated -> defer without consulting the verdict; this also
+    -- avoids dispatching a doomed transfer at cold start, before any event or
+    -- probe has run, when the link is already down.
     local ok, NetworkMgr = pcall(require, "ui/network/manager")
-    if not ok or not NetworkMgr
-            or type(NetworkMgr.isOnline) ~= "function" then
-        -- Can't tell — fail open (treat as reachable).
-        return true
+    if ok and NetworkMgr and type(NetworkMgr.isConnected) == "function"
+            and not NetworkMgr:isConnected() then
+        return false
     end
 
-    local resolve, connect
-    local sok, socket = pcall(require, "socket")
-    if sok and socket then
-        resolve = function(host) return socket.dns.toip(host) end
-        connect = function(ip, port, timeout)
-            local s = socket.tcp()
-            if not s then return false end
-            s:settimeout(timeout)
-            local r = s:connect(ip, port)
-            s:close()
-            return r == 1 or r == true
-        end
-    end
-
-    return Reachability.check(Settings.get_cloud_server(), {
-        is_online     = function() return NetworkMgr:isOnline() and true or false end,
-        resolve       = resolve,
-        connect       = connect,
-        probe_timeout = 2,
-    })
+    -- Otherwise consult the async reachability verdict (cached; never blocks on
+    -- DNS).  The verdict is moved by transfer outcomes (note_success), the
+    -- NetworkConnected/Disconnected handlers, and a non-blocking probe; see
+    -- _cloud_reachability.  Absent instance (defensive) -> fail open.
+    if not self._cloud_reachability then return true end
+    return self._cloud_reachability:is_reachable()
 end
 
 -- ----------------------------------------------------------------------------
@@ -3242,6 +3584,7 @@ function Syncery:_copyDiagnosticInfo()
     -- value, so the pure fault detector never raises on an unknown.
     local store_exists, store_decode_ok, conflict_count, tombstone_count =
         nil, nil, nil, nil
+    local metadata_tombstone_count = nil
 
     -- This book -- only when one is open.
     if self.ui and self.ui.doc_settings then
@@ -3268,6 +3611,8 @@ function Syncery:_copyDiagnosticInfo()
                 if reason == "ok" then
                     store_exists, store_decode_ok = true, true
                     tombstone_count = DiagnosticSnapshot.count_tombstones(store_data)
+                    metadata_tombstone_count =
+                        DiagnosticSnapshot.count_metadata_tombstones(store_data)
                 elseif reason == "invalid_json" or reason == "read_error" then
                     store_exists, store_decode_ok = true, false
                 else
@@ -3344,6 +3689,7 @@ function Syncery:_copyDiagnosticInfo()
         store_decode_ok     = store_decode_ok,
         conflict_count      = conflict_count,
         tombstone_count     = tombstone_count,
+        metadata_tombstone_count = metadata_tombstone_count,
         stignore_applicable = stignore_applicable,
         stignore_present    = stignore_present,
     }

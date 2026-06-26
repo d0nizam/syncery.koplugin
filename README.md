@@ -2,9 +2,9 @@
 
 <img src="assets/syncery.svg" alt="Syncery" />
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/d0nizam/syncery.koplugin/releases)
+[![Release](https://img.shields.io/badge/release-v1.1.0-blue)](https://github.com/d0nizam/syncery.koplugin/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
-![Tests](https://img.shields.io/badge/tests-119%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)
 
 **Cross-device reading progress, annotations, metadata, and render-settings sync for KOReader.**
 
@@ -50,6 +50,7 @@ Syncery keeps your reading life in step across every KOReader device — self-ho
 - **Your files, your transport** — everything travels as plain JSON over **Syncthing** (direct device-to-device) or your own **cloud** (Dropbox / WebDAV / FTP). 
 - **Nothing lost when devices disagree** — edits made on different devices merge instead of overwriting each other. The one case that can truly clash — marking a book *Finished* on one device and *On hold* on another — is surfaced for you to resolve, never dropped silently.
 - **Works offline** — changes sync whenever your devices next reconnect; a device that's been offline for weeks keeps its place.
+- **Reading statistics & vocabulary** — automatically trigger KOReader's built-in Statistics and Vocabulary Builder plugins to sync their databases over your cloud storage, using the same periodic schedule. Syncery triggers the sync; the plugins handle the merge themselves.
 - **See everything in one place** — a **Progress Browser** shows how far each device has read in every book (and jumps you to any of them), and an **Annotation Browser** gathers all your highlights and notes across your whole library.
 
 For the exact fields and toggles, see [What Syncery syncs](#what-syncery-syncs); for how it's built, see [Architecture overview](#architecture-overview).
@@ -166,7 +167,25 @@ A recap step shows all choices. Tap **Done** to save and start syncing.
 | **Annotations** | Highlights, notes, bookmarks — each with colour, drawer, timestamps, device_id | 3-way merge with tombstone tracking | Master toggle + highlights/notes/bookmarks sub-toggles (each filters its own type; a disabled type stays local and is preserved for other devices in the shared file) + file-extension filter |
 | **Book metadata** | Reading status, rating, collections, summary note, custom title/author, handmade TOC | Per-field last-write-wins; status uses the lifecycle lattice | Master toggle + per-field sub-toggles |
 | **Render settings** | Font face, font size, line spacing, font weight, page margins | Per-field last-write-wins | Master toggle (off by default) + per-field sub-toggles |
+| **KOReader plugin databases** | Syncery does **not** carry these DBs. It periodically triggers KOReader's **Reading Statistics** and **Vocabulary Builder** to run their **own** cloud-storage sync, so your stats and word lists stay in sync just like your position and annotations. | N/A (Syncery only triggers; the plugins' cloud merge handles conflicts) | Master toggle (Statistics & Vocabulary) + sub-toggles per plugin + interval (1–1440 min) + unified server opt-in |
+### Statistics & Vocabulary sync
 
+Syncery can periodically trigger KOReader's native **Reading Statistics** and **Vocabulary Builder** to sync their own databases over the cloud.
+
+Syncery does **not** carry, read, or merge these SQLite databases. Instead, it fires each plugin's existing Cloud storage+ sync on a repeating timer — the same mechanism they use when you tap "Sync now" in their own menus. Each plugin performs its own three-way merge, so concurrent edits across devices are reconciled, not overwritten.
+
+**Requirements:**
+- Cloud storage+ plugin enabled (or the built-in SyncService)
+- Each plugin needs a cloud server configured in its own settings (Dropbox or WebDAV — FTP does not work)
+- Syncthing does not carry these plugins' databases; cloud storage only
+
+**What you configure under *Sync Vocab & Statistics*:**
+- **Master toggle** — on/off (off by default)
+- **Statistics** / **Vocabulary** sub-toggles — which plugin to trigger
+- **Interval** — how often (1–1440 min, default 5)
+- **Use Syncery's cloud server** — writes Syncery's server address into each plugin's settings so you configure the destination once instead of in each plugin separately
+
+**Page-turn behaviour:** the actual sync runs synchronously on KOReader's UI thread, so a page turn during sync may lag briefly.
 ---
 
 ## Menu reference
@@ -196,6 +215,13 @@ Syncery                                         ← top-level entry in ☰ → T
 │   │        + Trash Bin (deleted annotations)…
 │   ├── ── Choose which metadata to sync ──  + Push this book's handmade TOC
 │   ├── Font & layout…                          ← render settings (── Choose which settings to sync ──)
+│   ├── Statistics & Vocabulary ▸  ← auto-trigger for KOReader's native plugins
+│   │   ├── Sync Vocab & Statistics              ← master toggle
+│   │   ├── Statistics                           ← sub-toggle
+│   │   ├── Vocabulary                           ← sub-toggle
+│   │   ├── Use Syncery's cloud server           ← point both at the WebDAV server configured on Syncery
+│   │   ├── Sync interval: 5 min                 ← spinner (1–1440)
+│   │   └── How this works…                      ← info dialog
 │   ├── ── on this device ──
 │   ├── Adapt highlight style to this device
 │   └── Jump: Jump automatically / Ask first / Never jump   (+ Jump to another device now…)
@@ -437,6 +463,11 @@ All settings persist in KOReader's `G_reader_settings` under `syncery_*` keys:
 | `syncery_use_cloud` | bool | `false` | Master toggle for Cloud |
 | `syncery_cloud_server` | table | — | Cloud destination descriptor |
 | `syncery_cloud_upload_delay` | number | `60` | Debounce (seconds) before a cloud upload; min 15 |
+| `syncery_db_sync_enabled` | bool | `false` | Master toggle for Statistics & Vocabulary auto-trigger |
+| `syncery_db_sync_stats` | bool | `true` | Include Reading Statistics in the auto-trigger |
+| `syncery_db_sync_vocab` | bool | `true` | Include Vocabulary Builder in the auto-trigger |
+| `syncery_db_sync_unify` | bool | `false` | Point both plugins at Syncery's cloud server (WebDAV/Dropbox only) |
+| `syncery_db_sync_interval_min` | number | `5` | Interval (minutes) between auto-triggers |
 | `syncery_sync_progress` | bool | `false` | Toggle progress sync |
 | `syncery_sync_annotations` | bool | `false` | Toggle annotation sync |
 | `syncery_sync_highlights` | bool | `true` | Highlights sub-toggle |

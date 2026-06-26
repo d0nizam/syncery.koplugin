@@ -80,6 +80,59 @@ end
 
 
 -- ----------------------------------------------------------------------------
+-- DB sync (Reading Statistics + Vocabulary Builder) flags + periodic interval.
+-- Master defaults OFF; per-DB sub-toggles default ON; interval defaults 5 min
+-- with a floor-1 fallback for invalid stored values.  No setters — the menu
+-- writes the keys directly (enabled-flag pattern), so these tests drive the
+-- backend.
+-- ----------------------------------------------------------------------------
+
+
+do
+    local b = with_backend()
+    -- defaults
+    h.assert_false(Settings.get_db_sync_enabled(), "db sync master default OFF")
+    h.assert_true(Settings.get_db_sync_stats(),    "db sync stats sub-toggle default ON")
+    h.assert_true(Settings.get_db_sync_vocab(),    "db sync vocab sub-toggle default ON")
+    h.assert_false(Settings.get_db_sync_unify(),   "db sync unify (Tier 2) default OFF")
+
+    -- stored values read back
+    b:saveSetting("syncery_db_sync_enabled", true)
+    b:saveSetting("syncery_db_sync_stats", false)
+    b:saveSetting("syncery_db_sync_vocab", false)
+    b:saveSetting("syncery_db_sync_unify", true)
+    h.assert_true(Settings.get_db_sync_enabled(),  "master reads syncery_db_sync_enabled")
+    h.assert_false(Settings.get_db_sync_stats(),   "stats sub-toggle reads syncery_db_sync_stats")
+    h.assert_false(Settings.get_db_sync_vocab(),   "vocab sub-toggle reads syncery_db_sync_vocab")
+    h.assert_true(Settings.get_db_sync_unify(),    "unify sub-toggle reads syncery_db_sync_unify")
+
+    -- interval: default 5 (untouched), stored value, floor-1 + non-number fallback
+    h.assert_equal(Settings.get_db_sync_interval_min(), 5, "db sync interval default 5")
+    b:saveSetting("syncery_db_sync_interval_min", 15)
+    h.assert_equal(Settings.get_db_sync_interval_min(), 15, "interval reads stored value")
+    b:saveSetting("syncery_db_sync_interval_min", 0)
+    h.assert_equal(Settings.get_db_sync_interval_min(), 5, "sub-1 interval falls back to 5")
+    b:saveSetting("syncery_db_sync_interval_min", "nonsense")
+    h.assert_equal(Settings.get_db_sync_interval_min(), 5, "non-number interval falls back to 5")
+end
+
+
+-- Interval SETTER: round-trips a valid value, floors fractional input, clamps
+-- the floor to 1, and rejects non-numbers (returns nil, stores nothing).
+do
+    with_backend()
+    h.assert_equal(Settings.set_db_sync_interval_min(20), 20, "set returns the stored interval")
+    h.assert_equal(Settings.get_db_sync_interval_min(), 20, "interval round-trips")
+    h.assert_equal(Settings.set_db_sync_interval_min(3.9), 3, "fractional input floored")
+    h.assert_equal(Settings.get_db_sync_interval_min(), 3, "floored value stored")
+    h.assert_equal(Settings.set_db_sync_interval_min(0), 1, "sub-1 clamped to floor 1")
+    h.assert_equal(Settings.get_db_sync_interval_min(), 1, "clamped value stored")
+    h.assert_nil(Settings.set_db_sync_interval_min("x"), "non-number rejected (returns nil)")
+    h.assert_equal(Settings.get_db_sync_interval_min(), 1, "rejected write left prior value")
+end
+
+
+-- ----------------------------------------------------------------------------
 -- Syncthing URL is COMPUTED from scheme + port (host hardcoded), not stored.
 -- ----------------------------------------------------------------------------
 
@@ -250,6 +303,27 @@ do
     local desc = Settings.describe_cloud_server()
     h.assert_equal(desc, "dropbox — https://api.dropboxapi.com",
         "describe combines kind and where")
+end
+
+
+do
+    with_backend()
+    h.assert_nil(Settings.get_cloud_server_ip(), "no cached server IP by default")
+
+    -- Round-trip a {host, ip}.
+    h.assert_true(Settings.set_cloud_server_ip("dav.example.com", "203.0.113.7"),
+        "set_cloud_server_ip returned true for string host+ip")
+    local got = Settings.get_cloud_server_ip()
+    h.assert_true(type(got) == "table", "IP cache round-trips a table")
+    h.assert_equal(got.host, "dav.example.com", "cached host preserved")
+    h.assert_equal(got.ip,   "203.0.113.7",     "cached ip preserved")
+
+    -- Non-string input is rejected, so a bad resolve never poisons the cache.
+    h.assert_false(Settings.set_cloud_server_ip("dav.example.com", nil), "nil ip rejected")
+    h.assert_false(Settings.set_cloud_server_ip(nil, "203.0.113.7"),     "nil host rejected")
+    local still = Settings.get_cloud_server_ip()
+    h.assert_equal(still and still.ip, "203.0.113.7",
+        "rejected writes left the prior cache intact")
 end
 
 

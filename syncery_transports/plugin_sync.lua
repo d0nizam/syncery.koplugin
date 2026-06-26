@@ -39,6 +39,7 @@ local Settings      = require("syncery_settings")
 local AnnPaths      = require("syncery_ann/paths")
 local ProgressPaths = require("syncery_progress/paths")
 local I18n          = require("syncery_i18n")
+local StateStore    = require("syncery_ann/state_store")
 
 local _ = I18n.translate
 
@@ -105,13 +106,30 @@ function PluginSync.do_cloud_upload(plugin, state)
         end
     end
     if a_path then
+        local content
         local f = io.open(a_path, "rb")
         if f then
-            local content = f:read("*a")
+            content = f:read("*a")
             f:close()
-            if content and content ~= "" then
-                table.insert(entries, { kind = "annotations", content = content })
-            end
+        end
+        -- Bootstrap a fresh-device PULL.  With no local annotations file the
+        -- bidirectional cloud sync would skip this kind entirely (push and pull
+        -- are one op; both need staged content), so a device that never
+        -- annotated this book would never DOWNLOAD a peer's annotations.  Stage
+        -- a canonical EMPTY envelope (this device's no-opinion side of the
+        -- 3-way merge) when the annotation/metadata/render master is on; the
+        -- merge callback pulls the remote in and reconciles it into the
+        -- canonical file (then on_reconciled fires the Reload toast).  Safe:
+        -- absent canonical => never synced => the .sync ancestor is also empty
+        -- => the merge yields the remote with NO deletions.  Cloud-only:
+        -- Syncthing replicates the shared file at FS level.
+        if (not content or content == "")
+                and (plugin.sync_annotations or plugin.sync_metadata
+                     or plugin.sync_render_settings) then
+            content = StateStore.empty_envelope_json()
+        end
+        if content and content ~= "" then
+            table.insert(entries, { kind = "annotations", content = content })
         end
     end
     if #entries == 0 then return end

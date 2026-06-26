@@ -71,10 +71,24 @@ local function make_fake_plugin(opts)
         },
     }
 
+    -- Reachability verdict that the close-time push (Step 3) warms
+    -- synchronously before _doCloudUpload, so the gate answers inline.
+    plugin._cloud_reachability = {
+        warm_blocking = function() record("warm_blocking") end,
+    }
+
     -- Convenience predicate for the assertions.
     function plugin:called(method)
         for _, c in ipairs(self._calls) do
             if c.method == method then return c end
+        end
+        return nil
+    end
+
+    -- Index of the first call to `method` (for ordering assertions).
+    function plugin:called_index(method)
+        for i, c in ipairs(self._calls) do
+            if c.method == method then return i end
         end
         return nil
     end
@@ -120,6 +134,9 @@ do
     h.assert_true(plugin:called("_writeSave")             ~= nil, "Step 1: _writeSave")
     h.assert_true(plugin:called("_syncBookViaOrchestrator") ~= nil, "Step 2: orchestrator back-sync")
     h.assert_true(plugin:called("_doCloudUpload")         ~= nil, "Step 3: cloud upload")
+    h.assert_true(plugin:called("warm_blocking")          ~= nil, "Step 3: reachability warmed (close-time)")
+    h.assert_true(plugin:called_index("warm_blocking") < plugin:called_index("_doCloudUpload"),
+        "Step 3: warm_blocking runs BEFORE _doCloudUpload (so the gate answers inline)")
     h.assert_equal(ui.next_ticks_fired(),              1,         "Step 4: nextTick scheduled")
     h.assert_true(plugin:called("_doTriggerScan")         ~= nil, "Step 4: scan triggered inside nextTick")
     h.assert_equal(plugin.timers_cancel_all_count,     1,         "Step 5: cancel_all called")

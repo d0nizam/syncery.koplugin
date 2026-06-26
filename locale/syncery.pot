@@ -32,25 +32,25 @@ msgstr ""
 msgid " (phrase)"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:295
+#: syncery_migration/storage_mode.lua:292
 msgid "%d book already in the new location."
 msgid_plural "%d books already in the new location."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_migration/storage_mode.lua:301
+#: syncery_migration/storage_mode.lua:298
 msgid "%d book is not on this device — nothing was moved or deleted for it."
 msgid_plural "%d books are not on this device — nothing was moved or deleted for them."
 msgstr[0] ""
 msgstr[1] ""
 
-#: main.lua:2965
+#: main.lua:3189
 msgid "%d file was skipped — its book could not be identified, so it was left untouched."
 msgid_plural "%d files were skipped — their book could not be identified, so they were left untouched."
 msgstr[0] ""
 msgstr[1] ""
 
-#: main.lua:2363
+#: main.lua:2451
 msgid "%d new annotation from another device"
 msgid_plural "%d new annotations from another device"
 msgstr[0] ""
@@ -65,13 +65,13 @@ msgstr ""
 msgid "%s is at %d%% — %s"
 msgstr ""
 
-#: main.lua:3000
+#: main.lua:3224
 msgid "(%d other file was skipped — its book could not be identified.)"
 msgid_plural "(%d other files were skipped — their book could not be identified.)"
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/menu/transport_section.lua:183
+#: syncery_ui/menu/transport_section.lua:181
 msgid "(.stignore not written: %s)"
 msgstr ""
 
@@ -110,7 +110,7 @@ msgstr ""
 msgid "All Words"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:526
+#: syncery_migration/storage_mode.lua:523
 msgid "All your KOReader metadata is already in the selected location (%s)."
 msgstr ""
 
@@ -130,7 +130,7 @@ msgstr ""
 msgid "Annotations (%d)"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:645
+#: syncery_ui/menu/annotations_section.lua:653
 msgid "Another device's new position: %s"
 msgstr ""
 
@@ -154,15 +154,15 @@ msgstr ""
 msgid "Apply Tags Filter"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:378
+#: syncery_ui/menu/annotations_section.lua:376
 msgid ""
 "Apply a hand-built table of contents pushed from another device.\n"
 "\n"
 "Disabled by default. This controls INCOMING TOCs only — sending your own is the manual action below. Only works on reflowable documents (EPUB, FB2)."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:635
-#: syncery_ui/menu/annotations_section.lua:699
+#: syncery_ui/menu/annotations_section.lua:643
+#: syncery_ui/menu/annotations_section.lua:707
 msgid "Ask first"
 msgstr ""
 
@@ -174,6 +174,13 @@ msgstr ""
 msgid "Author: "
 msgstr ""
 
+#: syncery_ui/menu/db_sync_section.lua:32
+msgid ""
+"Auto-trigger Reading Statistics and Vocabulary Builder to sync themselves periodically while you read (set the interval below).\n"
+"\n"
+"These plugins sync over their OWN cloud storage -- not Syncery, and not Syncthing -- so this needs the Cloud storage+ plugin enabled and each plugin's cloud server set.  Off by default."
+msgstr ""
+
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:1242
 msgid "B: "
 msgstr ""
@@ -182,7 +189,7 @@ msgstr ""
 msgid "Backfill, manage, and clean your synced data; review the sync journal; run transport maintenance."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:394
+#: syncery_ui/menu/maintenance_section.lua:392
 msgid "Backfill, manage, and review your Syncery data."
 msgstr ""
 
@@ -192,7 +199,7 @@ msgstr ""
 msgid "Book"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:202
+#: syncery_ui/menu/annotations_section.lua:200
 msgid ""
 "Browse and restore annotations that were deleted on any device.\n"
 "\n"
@@ -203,7 +210,7 @@ msgstr ""
 msgid "Browse your synced highlights and notes across all books."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:297
+#: syncery_ui/menu/maintenance_section.lua:296
 msgid ""
 "Builds a plain-text snapshot of Syncery's state — version and device, what is being synced, transport status, this book, and recent sync outcomes.\n"
 "\n"
@@ -249,7 +256,7 @@ msgstr ""
 msgid "Check GitHub for a newer Syncery release and install it."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:533
+#: syncery_ui/menu/transport_section.lua:531
 msgid "Check cloud settings"
 msgstr ""
 
@@ -285,11 +292,11 @@ msgstr ""
 msgid "Clear filter"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:459
+#: syncery_ui/menu/transport_section.lua:457
 msgid "Cloud storage isn't available in this KOReader build."
 msgstr ""
 
-#: main.lua:3146
+#: main.lua:3370
 msgid ""
 "Conflict-file integration is active.\n"
 "\n"
@@ -304,7 +311,7 @@ msgstr ""
 msgid "Content Size: "
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:306
+#: syncery_ui/menu/maintenance_section.lua:305
 msgid "Copy diagnostic info"
 msgstr ""
 
@@ -312,7 +319,7 @@ msgstr ""
 msgid "Could not check for updates."
 msgstr ""
 
-#: main.lua:3155
+#: main.lua:3379
 msgid "Could not register conflict-file patterns with KOSyncthing+.  Its API may have changed; Syncery still merges conflicts locally, but KOSyncthing+ may count them in its badge."
 msgstr ""
 
@@ -321,15 +328,15 @@ msgstr ""
 msgid "Could not resolve the sync-conflict."
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:288
+#: syncery_ui/menu/per_book_section.lua:287
 msgid "Could not save the resolved status."
 msgstr ""
 
-#: main.lua:2955
+#: main.lua:3179
 msgid "Could not scan for orphaned sync files."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:121
+#: syncery_ui/menu/status_section.lua:119
 msgid ""
 "Current Syncery status.\n"
 "\n"
@@ -348,11 +355,11 @@ msgstr ""
 msgid "Default"
 msgstr ""
 
-#: main.lua:2997
+#: main.lua:3221
 msgid "Delete these sync files permanently? No book files will be touched."
 msgstr ""
 
-#: main.lua:3416
+#: main.lua:3637
 msgid "Diagnostic info (copied to clipboard)"
 msgstr ""
 
@@ -364,7 +371,7 @@ msgstr ""
 msgid "Downloading update…"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:422
+#: syncery_ui/menu/annotations_section.lua:420
 msgid "Each is synced only when the master switch above is on, and stays off until you turn it on."
 msgstr ""
 
@@ -372,11 +379,11 @@ msgstr ""
 msgid "Edit Note"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:601
+#: syncery_ui/menu/transport_section.lua:599
 msgid "Enter the Syncthing API key. Not needed when KOSyncthing+ is installed — it supplies the key for you."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:465
+#: syncery_ui/menu/annotations_section.lua:462
 msgid "Everything about your reading position across devices: send this device's position, choose what happens when another device is ahead, or jump to a specific device on demand."
 msgstr ""
 
@@ -451,7 +458,7 @@ msgstr ""
 msgid "Filter by Tags"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:345
+#: syncery_ui/menu/maintenance_section.lua:344
 msgid ""
 "Find and delete Syncery's leftover sync files (.syncery-*.json) whose book no longer exists.\n"
 "\n"
@@ -460,7 +467,7 @@ msgid ""
 "No book files are touched, and you'll see the list and confirm before anything is deleted."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:253
+#: syncery_ui/menu/transport_section.lua:251
 msgid ""
 "Find it in Syncthing → Settings → GUI → API Key.\n"
 "Leave empty if you don't use authentication.\n"
@@ -468,7 +475,7 @@ msgid ""
 "You'll pick the folder to sync afterward from \"Choose Syncthing folder\"."
 msgstr ""
 
-#: syncery_ui/wizard.lua:345
+#: syncery_ui/wizard.lua:344
 msgid "Finish setting up %s under Transports."
 msgstr ""
 
@@ -476,11 +483,11 @@ msgstr ""
 msgid "Finished"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:552
+#: syncery_ui/menu/annotations_section.lua:553
 msgid "Font & layout…"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:426
+#: syncery_ui/menu/annotations_section.lua:424
 msgid "Font (typeface)"
 msgstr ""
 
@@ -492,15 +499,15 @@ msgstr ""
 msgid "Font Sizes..."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:432
+#: syncery_ui/menu/annotations_section.lua:430
 msgid "Font size"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:441
+#: syncery_ui/menu/annotations_section.lua:439
 msgid "Font weight (boldness)"
 msgstr ""
 
-#: main.lua:2992
+#: main.lua:3216
 msgid "Found %d orphaned sync file. The book below was not found:"
 msgid_plural "Found %d orphaned sync files. The books below were not found:"
 msgstr[0] ""
@@ -542,22 +549,30 @@ msgstr ""
 msgid "Horizontal Margin: "
 msgstr ""
 
-#: syncery_ui/wizard.lua:227
+#: syncery_ui/wizard.lua:226
 msgid "How do you want to sync your files?"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:398
+#: syncery_ui/menu/transport_section.lua:396
 msgid ""
 "How long to debounce after a save before uploading.\n"
 "Higher values protect rate-limited providers like Dropbox.\n"
 "Minimum 15 s; recommended 60 s."
 msgstr ""
 
+#: syncery_ui/menu/db_sync_section.lua:41
+msgid "How often to sync Statistics and Vocabulary while you read, in minutes.  Minimum 1."
+msgstr ""
+
+#: syncery_ui/menu/db_sync_section.lua:106
+msgid "How this works…"
+msgstr ""
+
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:1271
 msgid "H≠ "
 msgstr ""
 
-#: syncery_ui/wizard.lua:342
+#: syncery_ui/wizard.lua:341
 msgid "If you sync more than one Syncthing folder, choose the right one under Transports."
 msgstr ""
 
@@ -565,11 +580,19 @@ msgstr ""
 msgid "In sync at %s."
 msgstr ""
 
+#: syncery_ui/menu/db_sync_section.lua:39
+msgid "Include Reading Statistics in the auto-trigger."
+msgstr ""
+
+#: syncery_ui/menu/db_sync_section.lua:40
+msgid "Include Vocabulary Builder in the auto-trigger."
+msgstr ""
+
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:186
 msgid "Info Size: "
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:486
+#: syncery_ui/menu/maintenance_section.lua:484
 msgid "Install the KOSyncthing+ plugin to use its integration."
 msgstr ""
 
@@ -583,12 +606,12 @@ msgid ""
 "Latest: %2"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:633
-#: syncery_ui/menu/annotations_section.lua:692
+#: syncery_ui/menu/annotations_section.lua:641
+#: syncery_ui/menu/annotations_section.lua:700
 msgid "Jump automatically"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:659
+#: syncery_ui/menu/annotations_section.lua:667
 msgid "Jump to another device now…"
 msgstr ""
 
@@ -596,27 +619,27 @@ msgstr ""
 msgid "Jump to most recent position"
 msgstr ""
 
-#: main.lua:1575
+#: main.lua:1700
 msgid "Jumped to new position."
 msgstr ""
 
-#: main.lua:1634
+#: main.lua:1759
 msgid "Jumped to the newest position from another device."
 msgstr ""
 
-#: syncery_ui/wizard.lua:122 syncery_ui/wizard.lua:309
+#: syncery_ui/wizard.lua:121 syncery_ui/wizard.lua:308
 msgid "KOSyncthing+"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:481
+#: syncery_ui/menu/maintenance_section.lua:479
 msgid "KOSyncthing+ integration status…"
 msgstr ""
 
-#: main.lua:3459 syncery_update.lua:284 syncery_update.lua:331
+#: main.lua:3680 syncery_update.lua:284 syncery_update.lua:331
 msgid "Later"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:437
+#: syncery_ui/menu/annotations_section.lua:435
 msgid "Line spacing"
 msgstr ""
 
@@ -636,11 +659,11 @@ msgstr ""
 msgid "Manage and maintain your Syncery data: backfill old annotations, manage synced books, remove leftover files, view the sync journal, and transport upkeep."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:641
+#: syncery_ui/menu/transport_section.lua:639
 msgid "Manually edit Syncthing settings: port."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:241
+#: syncery_ui/booklist/actions.lua:239
 msgid ""
 "Mark this book's annotations as deleted and remove the local progress file.\n"
 "\n"
@@ -656,14 +679,14 @@ msgid ""
 "To clear the screen, please reopen the book after performing this reset."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:346
+#: syncery_ui/menu/annotations_section.lua:344
 msgid ""
 "Master switch for book metadata syncing (status, rating, collections, custom info, handmade TOC).\n"
 "\n"
 "Metadata is sent together with the reading progress – it updates every few seconds while you read, or immediately on a manual 'Sync now'."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:414
+#: syncery_ui/menu/annotations_section.lua:412
 msgid ""
 "Master switch for syncing this book's reading appearance.\n"
 "\n"
@@ -712,7 +735,7 @@ msgstr ""
 msgid "Most recent: %s on %s."
 msgstr ""
 
-#: main.lua:3057
+#: main.lua:3281
 msgid ""
 "Move %d annotation to Trash?\n"
 "\n"
@@ -743,16 +766,16 @@ msgstr ""
 msgid "Navigation"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:634
-#: syncery_ui/menu/annotations_section.lua:706
+#: syncery_ui/menu/annotations_section.lua:642
+#: syncery_ui/menu/annotations_section.lua:714
 msgid "Never jump"
 msgstr ""
 
-#: main.lua:2360
+#: main.lua:2448
 msgid "New annotations and font & layout from another device"
 msgstr ""
 
-#: main.lua:2366
+#: main.lua:2454
 msgid "New font & layout from another device"
 msgstr ""
 
@@ -760,18 +783,18 @@ msgstr ""
 msgid "Newest First"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:219
+#: syncery_ui/menu/transport_section.lua:217
 msgid ""
 "No API key set.\n"
 "Set up the API key first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:620
-#: syncery_ui/menu/transport_section.lua:632
+#: syncery_ui/menu/transport_section.lua:618
+#: syncery_ui/menu/transport_section.lua:630
 msgid "No Syncthing API key yet — set one up first. Not needed with KOSyncthing+."
 msgstr ""
 
-#: main.lua:1627
+#: main.lua:1752
 msgid "No newer position from another device to jump to."
 msgstr ""
 
@@ -786,7 +809,7 @@ msgid ""
 "Open another book, jump to another device's position, then this item will become available again."
 msgstr ""
 
-#: main.lua:2662
+#: main.lua:2853
 msgid ""
 "No sync transport is set up yet.\n"
 "\n"
@@ -810,11 +833,15 @@ msgstr ""
 msgid "No synced reading progress found yet."
 msgstr ""
 
+#: main.lua:2777
+msgid "Not synced (no cloud server set): %s"
+msgstr ""
+
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:204
 msgid "Note Spacing: "
 msgstr ""
 
-#: syncery_ui/status_panel.lua:176
+#: syncery_ui/status_panel.lua:174
 msgid "Note: the \"Cloud storage+\" plugin isn't available — using built-in cloud sync (Dropbox / WebDAV only; FTP won't sync)."
 msgstr ""
 
@@ -822,7 +849,7 @@ msgstr ""
 msgid "Notes: All"
 msgstr ""
 
-#: main.lua:2672
+#: main.lua:2863
 msgid ""
 "Nothing is turned on to sync yet.\n"
 "\n"
@@ -857,7 +884,7 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
-#: main.lua:1710
+#: main.lua:1823
 msgid "Open a book first to push its handmade table of contents."
 msgstr ""
 
@@ -873,7 +900,7 @@ msgstr ""
 msgid "Page Margins"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:445
+#: syncery_ui/menu/annotations_section.lua:443
 msgid "Page margins"
 msgstr ""
 
@@ -885,7 +912,7 @@ msgstr ""
 msgid "Pagination Style..."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:81
+#: syncery_ui/menu/advanced_section.lua:80
 msgid ""
 "Physically deletes all of this book's Syncery data files — the progress and annotations JSON plus their last-sync and cloud-staging copies.\n"
 "\n"
@@ -894,11 +921,11 @@ msgid ""
 "To clear the screen, please reopen the book after performing this reset."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:627
+#: syncery_ui/menu/annotations_section.lua:635
 msgid "Pick another device and jump to its reading position on demand.  Works in any mode, including \"Never\"."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:409
+#: syncery_ui/menu/transport_section.lua:407
 msgid "Please enter a number ≥ 15."
 msgstr ""
 
@@ -906,15 +933,19 @@ msgstr ""
 msgid "Plugin update available"
 msgstr ""
 
+#: syncery_ui/menu/db_sync_section.lua:44
+msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so you set the cloud up once here instead of in each plugin.  This changes those plugins' sync settings; turning it off afterwards leaves the last server in place.  Needs a WebDAV or Dropbox server (FTP cannot sync these databases)."
+msgstr ""
+
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:206
 msgid "Preview Fudge: "
 msgstr ""
 
-#: syncery_ui/wizard.lua:127
+#: syncery_ui/wizard.lua:126
 msgid "Private file sync"
 msgstr ""
 
-#: syncery_ui/wizard.lua:123
+#: syncery_ui/wizard.lua:122
 msgid "Private file sync — detected on this device"
 msgstr ""
 
@@ -922,15 +953,26 @@ msgstr ""
 msgid "Progress Browser"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:388
+#: syncery_ui/menu/annotations_section.lua:386
 msgid "Push this book's handmade TOC"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:518 syncery_ui/wizard.lua:162
+#: syncery_ui/menu/db_sync_section.lua:51
+msgid ""
+"Reading Statistics and Vocabulary Builder keep their data in their own databases, which they sync through KOReader's Cloud storage+ plugin -- over the network, with a three-way merge so two devices don't overwrite each other.\n"
+"\n"
+"Syncery does not carry or merge these databases itself; it only asks each plugin to run its own sync periodically as you read.  That is why this works over cloud storage only, and not over Syncthing.\n"
+"\n"
+"To use it: enable the Cloud storage+ plugin, set a cloud server in each plugin's own sync settings, then turn on the switches here.\n"
+"\n"
+"Or turn on \"Use Syncery's cloud server\" to set the cloud up once here and let Syncery point both plugins at it."
+msgstr ""
+
+#: syncery_ui/menu/annotations_section.lua:519 syncery_ui/wizard.lua:161
 msgid "Reading position"
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:321
+#: syncery_ui/menu/per_book_section.lua:320
 msgid "Reading status set to '%s' on all devices."
 msgstr ""
 
@@ -950,29 +992,29 @@ msgid ""
 "So if you tap an annotation, the book opens, and nothing is there — that is the reason."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:377
+#: syncery_ui/menu/annotations_section.lua:375
 msgid "Receive handmade TOC"
 msgstr ""
 
-#: main.lua:2375
+#: main.lua:2463
 msgid "Reload"
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:238
+#: syncery_ui/booklist/actions.lua:236
 msgid "Remove this book from Syncery on this device"
 msgstr ""
 
-#: main.lua:3015
+#: main.lua:3239
 msgid "Removed %d orphaned sync file."
 msgid_plural "Removed %d orphaned sync files."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/booklist/actions.lua:224
+#: syncery_ui/booklist/actions.lua:222
 msgid "Reset my Syncery data for this book"
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:227
+#: syncery_ui/booklist/actions.lua:225
 msgid ""
 "Reset this device's annotations and progress for this book?\n"
 "\n"
@@ -989,7 +1031,7 @@ msgstr ""
 msgid "Resolve conflict"
 msgstr ""
 
-#: main.lua:3458 syncery_update.lua:283
+#: main.lua:3679 syncery_update.lua:283
 msgid "Restart"
 msgstr ""
 
@@ -1004,29 +1046,29 @@ msgstr ""
 msgid "S: "
 msgstr ""
 
-#: syncery_ui/wizard.lua:347
+#: syncery_ui/wizard.lua:346
 msgid "Saved locally for now — your data will sync once you set up a transport."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:375
+#: syncery_ui/menu/maintenance_section.lua:374
 msgid ""
 "Scan for books that have native KOReader annotations and add them to Syncery — together with each book's reading status, rating, and the render settings you sync — without opening the book. Looks in your sync folders and in KOReader's central metadata folder.\n"
 "\n"
 "Useful right after install if you already have highlights and notes. It is idempotent: books already synced are skipped."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:408
+#: syncery_ui/menu/maintenance_section.lua:406
 msgid ""
 "Scan your library for books with annotations and add them — with their reading status, rating, and synced render settings — to Syncery, without opening each book?\n"
 "\n"
 "Already-synced books are skipped."
 msgstr ""
 
-#: main.lua:1111
+#: main.lua:1243
 msgid "Scanning books for data…"
 msgstr ""
 
-#: main.lua:1105
+#: main.lua:1237
 msgid ""
 "Scanning books for data…\n"
 "%d / %d"
@@ -1048,18 +1090,18 @@ msgstr ""
 msgid "See where every device has read to, across all your synced books."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:179
+#: syncery_ui/menu/transport_section.lua:177
 msgid "Selected folder: %s"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:390
+#: syncery_ui/menu/annotations_section.lua:388
 msgid ""
 "Send the current book's hand-built table of contents to your other devices now.\n"
 "\n"
 "Sending is always manual — a handmade TOC is a large artifact built once, so it is never auto-synced. The TOC uses text positions (xpointers) that only work on reflowable formats (EPUB, FB2); PDF and image documents are skipped. To RECEIVE TOCs from other devices, enable the switch above."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:611
+#: syncery_ui/menu/annotations_section.lua:619
 msgid ""
 "Send this device's reading position — your current page and percentage — so your other devices can follow it.\n"
 "\n"
@@ -1070,7 +1112,7 @@ msgstr ""
 msgid "Set"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:600
+#: syncery_ui/menu/transport_section.lua:598
 msgid "Set up API key…"
 msgstr ""
 
@@ -1083,7 +1125,7 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:641
+#: syncery_ui/menu/annotations_section.lua:649
 msgid "Share my position from this device"
 msgstr ""
 
@@ -1091,7 +1133,7 @@ msgstr ""
 msgid "Show Book / Info Row: "
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:496
+#: syncery_ui/menu/annotations_section.lua:493
 msgid ""
 "Show highlights from other devices in this device's highlight style, without the colour they were given on the other device; your own highlights keep the style you gave them. Most useful on a grayscale e-reader, where a colour from a colour device isn't visible anyway.\n"
 "\n"
@@ -1112,7 +1154,15 @@ msgstr ""
 msgid "Space Between Notes"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:360
+#: main.lua:2768 syncery_ui/menu/db_sync_section.lua:84
+msgid "Statistics"
+msgstr ""
+
+#: syncery_ui/menu/annotations_section.lua:562
+msgid "Statistics & Vocabulary"
+msgstr ""
+
+#: syncery_ui/menu/maintenance_section.lua:359
 msgid ""
 "Status and re-registration of Syncery's integration with the KOSyncthing+ plugin.\n"
 "\n"
@@ -1121,18 +1171,26 @@ msgid ""
 "Tap to verify the integration is active, or to re-register after installing KOSyncthing+."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:475
+#: syncery_ui/menu/annotations_section.lua:509
+msgid "Sync Reading Statistics and Vocabulary Builder across devices, through their own cloud sync.  Tap to choose which, and how it works."
+msgstr ""
+
+#: syncery_ui/menu/db_sync_section.lua:82
+msgid "Sync Vocab & Statistics"
+msgstr ""
+
+#: syncery_ui/menu/annotations_section.lua:472
 msgid ""
 "Sync book status (Finished / Reading / On Hold), star rating, collection membership, custom book info, and handmade table of contents across devices.\n"
 "\n"
 "Open this submenu to toggle metadata syncing and its individual fields."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:413
+#: syncery_ui/menu/annotations_section.lua:411
 msgid "Sync font & layout"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:481
+#: syncery_ui/menu/annotations_section.lua:478
 msgid ""
 "Sync font size, font face, line spacing, font weight, and margins for individual books across devices.\n"
 "\n"
@@ -1141,7 +1199,15 @@ msgid ""
 "Only meaningful for reflowable documents (EPUB, FB2, MOBI). PDF and similar fixed-layout formats are unaffected."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:402
+#: syncery_ui/menu/db_sync_section.lua:94
+msgid "Sync interval (minutes)"
+msgstr ""
+
+#: syncery_ui/menu/db_sync_section.lua:91
+msgid "Sync interval: %d min"
+msgstr ""
+
+#: syncery_ui/menu/maintenance_section.lua:400
 msgid "Sync pre-Syncery data…"
 msgstr ""
 
@@ -1149,26 +1215,26 @@ msgstr ""
 msgid "Sync setup. Long-press a transport row to open its panel."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:433
+#: syncery_ui/menu/annotations_section.lua:431
 msgid "Sync the body font size across devices. KOReader renders it screen-aware, so the same size feels similar on different devices."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:427
+#: syncery_ui/menu/annotations_section.lua:425
 msgid ""
 "Sync the chosen font across devices.\n"
 "\n"
 "The font must be installed on each device for it to display; otherwise that device falls back to its default."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:442
+#: syncery_ui/menu/annotations_section.lua:440
 msgid "Sync the font weight / boldness adjustment across devices."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:438
+#: syncery_ui/menu/annotations_section.lua:436
 msgid "Sync the line spacing across devices."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:446
+#: syncery_ui/menu/annotations_section.lua:444
 msgid ""
 "Sync the page margins across devices.\n"
 "\n"
@@ -1180,15 +1246,15 @@ msgstr ""
 msgid "Sync-conflict resolved."
 msgstr ""
 
-#: _meta.lua:3 main.lua:3472
+#: _meta.lua:3 main.lua:3693
 msgid "Syncery"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:316
+#: syncery_migration/storage_mode.lua:313
 msgid "Syncery also has data from your other devices: %s. Run this migration on each of them too."
 msgstr ""
 
-#: syncery_ui/wizard.lua:214
+#: syncery_ui/wizard.lua:213
 msgid "Syncery includes them automatically when you open the books."
 msgstr ""
 
@@ -1199,7 +1265,7 @@ msgid ""
 "Installed version: %1"
 msgstr ""
 
-#: main.lua:3455
+#: main.lua:3676
 msgid ""
 "Syncery settings have been reset.\n"
 "\n"
@@ -1213,15 +1279,15 @@ msgid ""
 "Restart KOReader now to load it?"
 msgstr ""
 
-#: main.lua:3511
+#: main.lua:3731
 msgid "Syncery: jump to another device"
 msgstr ""
 
-#: main.lua:3491
+#: main.lua:3712
 msgid "Syncery: undo last jump"
 msgstr ""
 
-#: main.lua:946
+#: main.lua:1079
 #, lua-format
 msgid ""
 "Synceryhash storage mode enabled.\n"
@@ -1234,7 +1300,7 @@ msgid ""
 "Make sure Syncthing is configured to sync that folder so your files reach other devices."
 msgstr ""
 
-#: main.lua:1129
+#: main.lua:1261
 #, lua-format
 msgid ""
 "Annotation scan complete.\n"
@@ -1245,18 +1311,18 @@ msgid ""
 "Errors: %d"
 msgstr ""
 
-#: main.lua:1180
+#: main.lua:1312
 msgid "Syncery can't identify this book reliably, so it won't sync across your devices. This usually means the file couldn't be read fully."
 msgstr ""
 
-#: main.lua:1258
+#: main.lua:1387
 msgid "Syncery ran into an unexpected error while opening this book."
 msgstr ""
 
-#: main.lua:1259 syncery_ui/annotation_viewer/viewer_lifted.lua:2594
+#: main.lua:1388 syncery_ui/annotation_viewer/viewer_lifted.lua:2594
 #: syncery_ui/menu/maintenance_section.lua:136
-#: syncery_ui/progress_browser/init.lua:307 syncery_ui/status_panel.lua:356
-#: syncery_ui/status_ui/init.lua:227 syncery_ui/trash/init.lua:206
+#: syncery_ui/progress_browser/init.lua:307 syncery_ui/status_panel.lua:354
+#: syncery_ui/status_ui/init.lua:223 syncery_ui/trash/init.lua:205
 msgid "Close"
 msgstr ""
 
@@ -1264,7 +1330,7 @@ msgstr ""
 msgid "Syncs your full reading state — position, highlights, notes, bookmarks, and book metadata — across devices as plain JSON, carried by Syncthing or cloud storage (Dropbox/WebDAV/FTP)."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:273
+#: syncery_ui/menu/transport_section.lua:271
 msgid ""
 "Syncthing is reachable and the API key is valid.\n"
 "\n"
@@ -1279,11 +1345,11 @@ msgstr ""
 msgid "T: "
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:359
+#: syncery_ui/menu/per_book_section.lua:358
 msgid "Tap a status below to keep it on all your devices."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:604
+#: syncery_ui/menu/transport_section.lua:602
 msgid "Tap to enter the Syncthing API key."
 msgstr ""
 
@@ -1291,7 +1357,7 @@ msgstr ""
 msgid "Text Margin: "
 msgstr ""
 
-#: main.lua:3118
+#: main.lua:3342
 msgid ""
 "The KOSyncthing+ plugin is not installed.\n"
 "\n"
@@ -1302,11 +1368,11 @@ msgstr ""
 msgid "The downloaded file does not look like a plugin archive."
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:332
+#: syncery_ui/menu/per_book_section.lua:331
 msgid "This book is marked with different reading statuses on different devices. Tap to choose which one to keep on all of them."
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:357
+#: syncery_ui/menu/per_book_section.lua:356
 msgid "This book's reading status differs across your devices:"
 msgstr ""
 
@@ -1343,7 +1409,7 @@ msgid ""
 "If you tap an annotation, the book opens, and nothing is there: that annotation was changed or deleted and the book has not been reopened since, so this view (and your other devices) still show the previous synced state. Reopening the book reconciles it."
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:279
+#: syncery_ui/menu/per_book_section.lua:278
 msgid "This status difference has already been resolved."
 msgstr ""
 
@@ -1367,7 +1433,7 @@ msgstr ""
 msgid "Transports"
 msgstr ""
 
-#: syncery_ui/wizard.lua:241
+#: syncery_ui/wizard.lua:240
 msgid "Turn on what you want. If you don't choose now or in the What's synced menu, nothing will sync."
 msgstr ""
 
@@ -1379,56 +1445,56 @@ msgstr ""
 msgid "Undo last jump"
 msgstr ""
 
-#: main.lua:1351 syncery_ui/annotation_viewer/viewer_lifted.lua:460
-#: syncery_ui/progress_browser/init.lua:229 syncery_ui/status_ui/init.lua:182
-#: syncery_ui/status_ui/init.lua:257
+#: main.lua:1480 syncery_ui/annotation_viewer/viewer_lifted.lua:460
+#: syncery_ui/progress_browser/init.lua:229 syncery_ui/status_ui/init.lua:178
+#: syncery_ui/status_ui/init.lua:253
 msgid "Unknown"
 msgstr ""
 
-#: main.lua:1528
+#: main.lua:1653
 msgid "Auto-jumped to new position."
 msgstr ""
 
-#: main.lua:1529 main.lua:1576 syncery_ui/progress_browser/init.lua:158
-#: syncery_ui/status_ui/init.lua:294
+#: main.lua:1654 main.lua:1701 syncery_ui/progress_browser/init.lua:158
+#: syncery_ui/status_ui/init.lua:290
 msgid "Undo"
 msgstr ""
 
-#: main.lua:1645
+#: main.lua:1770
 msgid "Nothing to undo."
 msgstr ""
 
-#: main.lua:1665
+#: main.lua:1790
 msgid "Returned to previous position."
 msgstr ""
 
-#: main.lua:1720
+#: main.lua:1833
 msgid "Handmade TOC uses text positions that only work on reflowable documents (EPUB, FB2). This PDF or image document cannot share a TOC."
 msgstr ""
 
-#: main.lua:1737
+#: main.lua:1850
 msgid "No handmade table of contents found for this book."
 msgstr ""
 
-#: main.lua:1763
+#: main.lua:1876
 msgid "Handmade TOC will sync to other devices on next sync."
 msgstr ""
 
-#: main.lua:1768
+#: main.lua:1881
 msgid "Could not save handmade TOC for sync."
 msgstr ""
 
-#: main.lua:1867
+#: main.lua:1973
 #, lua-format
 msgid "Syncery: saved at page %d (%.0f%%)"
 msgstr ""
 
-#: main.lua:2241
+#: main.lua:2330
 #, lua-format
 msgid "Synced annotations (%d pulled, %d pushed)"
 msgstr ""
 
-#: main.lua:2246
+#: main.lua:2335
 #, lua-format
 msgid "Resolved %d annotation conflict(s)"
 msgstr ""
@@ -1441,157 +1507,169 @@ msgstr ""
 msgid "Update failed."
 msgstr ""
 
-#: main.lua:2424
+#: main.lua:2512
 msgid "Resolved progress conflicts"
 msgstr ""
 
-#: main.lua:1632 main.lua:2502 main.lua:2566 syncery_ui/jump_toast.lua:40
+#: main.lua:1757 main.lua:2590 main.lua:2654 syncery_ui/jump_toast.lua:40
 #: syncery_ui/progress_browser/init.lua:157
 #: syncery_ui/progress_browser/init.lua:282
 msgid "Another device"
 msgstr ""
 
-#: main.lua:2503 main.lua:2567 syncery_ui/menu/maintenance_section.lua:463
-#: syncery_ui/wizard.lua:126 syncery_ui/wizard.lua:309
+#: main.lua:2591 main.lua:2655 syncery_ui/menu/maintenance_section.lua:461
+#: syncery_ui/wizard.lua:125 syncery_ui/wizard.lua:308
 msgid "Syncthing"
 msgstr ""
 
-#: main.lua:2868
+#: main.lua:3092
 msgid ""
 "No network connection.\n"
 "Scans will be retried automatically when you're back online."
 msgstr ""
 
-#: main.lua:2880
+#: main.lua:3104
 msgid "Transport not initialised."
 msgstr ""
 
-#: main.lua:2895
+#: main.lua:3119
 msgid "Quick sync triggered."
 msgstr ""
 
-#: main.lua:2897 main.lua:2913 main.lua:2919 main.lua:2933
+#: main.lua:3121 main.lua:3137 main.lua:3143 main.lua:3157
 msgid "Rescan all"
 msgstr ""
 
-#: main.lua:2911 main.lua:2932
+#: main.lua:3135 main.lua:3156
 msgid "Scan triggered."
 msgstr ""
 
-#: main.lua:2916
+#: main.lua:3140
 msgid "No Syncthing folders configured."
 msgstr ""
 
-#: main.lua:2947 syncery_migration/storage_mode.lua:456
+#: main.lua:3171 syncery_migration/storage_mode.lua:453
 msgid "Filesystem access unavailable."
 msgstr ""
 
-#: main.lua:2963
+#: main.lua:3187
 msgid "No orphaned sync files found."
 msgstr ""
 
-#: main.lua:3008
+#: main.lua:3232
 msgid "Delete"
 msgstr ""
 
-#: main.lua:3020
+#: main.lua:3244
 msgid "Orphan cleanup"
 msgstr ""
 
-#: main.lua:3039 syncery_ui/status_ui/init.lua:117
-#: syncery_ui/trash/init.lua:331
+#: main.lua:3263 syncery_ui/status_ui/init.lua:113
+#: syncery_ui/trash/init.lua:330
 msgid "No document open"
 msgstr ""
 
-#: main.lua:3052
+#: main.lua:3276
 msgid "No annotations to delete."
 msgstr ""
 
-#: main.lua:3061
+#: main.lua:3285
 msgid "Move to Trash"
 msgstr ""
 
-#: main.lua:3077
+#: main.lua:3301
 msgid "Syncery: could not save changes. Annotations not deleted."
 msgstr ""
 
-#: main.lua:3091 syncery_ui/booklist/actions.lua:244
+#: main.lua:3315 syncery_ui/booklist/actions.lua:242
 #: syncery_ui/menu/per_book_section.lua:153
 msgid "Delete all"
 msgstr ""
 
-#: main.lua:3095
+#: main.lua:3319
 #, lua-format
 msgid "%d annotation moved to Trash."
 msgid_plural "%d annotations moved to Trash."
 msgstr[0] ""
 msgstr[1] ""
 
-#: main.lua:3173
+#: main.lua:3390
 msgid "No recent activity recorded."
 msgstr ""
 
-#: main.lua:3178
+#: main.lua:3395
 msgid "Recent sync activity (newest first):"
 msgstr ""
 
-#: main.lua:3189
+#: main.lua:3406
 msgid "Activity log"
 msgstr ""
 
-#: main.lua:3430
+#: main.lua:3651
 msgid ""
 "Reset every Syncery setting on this device?\n"
 "\n"
 "The device's Syncery JSON files for books are NOT touched — only this device's local preferences."
 msgstr ""
 
-#: main.lua:3431 syncery_ui/booklist/actions.lua:230
+#: main.lua:3652 syncery_ui/booklist/actions.lua:228
 msgid "Reset"
 msgstr ""
 
-#: main.lua:3487
+#: main.lua:3708
 msgid "Syncery: sync now"
 msgstr ""
 
-#: main.lua:3498
+#: main.lua:3719
 msgid "Syncery: rescan all folders"
 msgstr ""
 
-#: main.lua:3505
+#: main.lua:3725
 msgid "Syncery: show sync status"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:202
+#: syncery_migration/storage_mode.lua:199
 msgid "No synced books found to migrate."
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:224
+#: syncery_migration/storage_mode.lua:221
 msgid "Migrating Syncery data…"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:275
+#: syncery_migration/storage_mode.lua:272
 #, lua-format
 msgid "Migrating Syncery data… (%d done)"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:288
+#: syncery_migration/storage_mode.lua:285
 #, lua-format
 msgid "Migration cancelled. %d of %d books processed."
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:292
+#: syncery_migration/storage_mode.lua:289
 #, lua-format
 msgid "Migrated %d book."
 msgid_plural "Migrated %d books."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_migration/storage_mode.lua:349
+#: syncery_migration/storage_mode.lua:346
 msgid "Migrate books"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:617
+#: syncery_ui/menu/db_sync_section.lua:88
+msgid "Use Syncery's cloud server"
+msgstr ""
+
+#: main.lua:2772
+msgid "Vocab & Statistics not synced: enable the Cloud storage+ plugin."
+msgstr ""
+
+#: main.lua:2768 syncery_ui/menu/db_sync_section.lua:86
+msgid "Vocabulary"
+msgstr ""
+
+#: syncery_ui/menu/annotations_section.lua:625
 msgid ""
 "What to do when another device reaches a new position in this book:\n"
 "\n"
@@ -1626,7 +1704,7 @@ msgstr ""
 msgid "Yesterday"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:515
+#: syncery_migration/storage_mode.lua:512
 msgid ""
 "You just migrated your Syncery JSON files.\n"
 "\n"
@@ -1636,49 +1714,49 @@ msgid ""
 "Syncery doesn't move these files. If you'd like to consolidate them, go to the File Browser and use the menu: ⚙ → Document → Move book metadata."
 msgstr ""
 
-#: syncery_ui/wizard.lua:264
+#: syncery_ui/wizard.lua:263
 msgid "You'll choose the folder later from the menu."
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:471
+#: syncery_migration/storage_mode.lua:468
 msgid "Your Syncery data is already in the current storage location (%d book). Nothing to migrate."
 msgid_plural "Your Syncery data is already in the current storage location (%d books). Nothing to migrate."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/booklist/actions.lua:139
+#: syncery_ui/booklist/actions.lua:137
 msgid "Your personal progress and annotations have been reset for this book."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:144
+#: syncery_ui/booklist/actions.lua:142
 msgid "No personal data found for this book."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:150
+#: syncery_ui/booklist/actions.lua:148
 msgid "Could not reset all data. Please check the file system."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:199
+#: syncery_ui/booklist/actions.lua:197
 msgid "Local synced data has been deleted. Other devices may restore it later."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:205
+#: syncery_ui/booklist/actions.lua:203
 msgid "Could not completely delete data. Some files may remain."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:252
+#: syncery_ui/booklist/actions.lua:250
 msgid "Migrate this book to current storage mode"
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:255
+#: syncery_ui/booklist/actions.lua:253
 msgid "Already in the current storage mode."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:259
+#: syncery_ui/booklist/actions.lua:257
 msgid "Book migrated successfully."
 msgstr ""
 
-#: syncery_ui/booklist/actions.lua:261
+#: syncery_ui/booklist/actions.lua:259
 msgid "Migration skipped (book may already be in new location or data unavailable)."
 msgstr ""
 
@@ -1713,11 +1791,11 @@ msgstr ""
 msgid "page %s"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:100
+#: syncery_ui/menu/transport_section.lua:98
 msgid "paused"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:103
+#: syncery_ui/menu/transport_section.lua:101
 msgid "scanning"
 msgstr ""
 
@@ -1755,17 +1833,17 @@ msgstr ""
 msgid "Migrate"
 msgstr ""
 
-#: main.lua:3022 syncery_ui/annotation_viewer/viewer_lifted.lua:1560
+#: main.lua:3246 syncery_ui/annotation_viewer/viewer_lifted.lua:1560
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:2059
 #: syncery_ui/booklist/init.lua:273 syncery_ui/booklist/scan.lua:275
-#: syncery_ui/menu/_helpers.lua:252 syncery_ui/menu/annotations_section.lua:71
-#: syncery_ui/menu/annotations_section.lua:306
+#: syncery_ui/menu/_helpers.lua:252 syncery_ui/menu/annotations_section.lua:70
+#: syncery_ui/menu/annotations_section.lua:304
 #: syncery_ui/menu/maintenance_section.lua:60
 #: syncery_ui/menu/maintenance_section.lua:230
-#: syncery_ui/menu/maintenance_section.lua:416
-#: syncery_ui/menu/per_book_section.lua:363
-#: syncery_ui/menu/transport_section.lua:257
-#: syncery_ui/menu/transport_section.lua:404
+#: syncery_ui/menu/maintenance_section.lua:414
+#: syncery_ui/menu/per_book_section.lua:362
+#: syncery_ui/menu/transport_section.lua:255
+#: syncery_ui/menu/transport_section.lua:402
 msgid "Cancel"
 msgstr ""
 
@@ -1774,7 +1852,7 @@ msgstr ""
 msgid "Synced books — %d SDR, %d Synceryhash"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:414
+#: syncery_ui/menu/maintenance_section.lua:412
 msgid "Scan"
 msgstr ""
 
@@ -1820,7 +1898,7 @@ msgstr ""
 msgid "Jump"
 msgstr ""
 
-#: syncery_ui/menu/_helpers.lua:76
+#: syncery_ui/menu/_helpers.lua:75
 #, lua-format
 msgid ""
 "Syncery encountered an unexpected error.\n"
@@ -1829,7 +1907,7 @@ msgid ""
 "Details: %s"
 msgstr ""
 
-#: syncery_ui/menu/_helpers.lua:146
+#: syncery_ui/menu/_helpers.lua:145
 msgid ""
 "No network connection.\n"
 "Connect to the network, then try again."
@@ -1839,10 +1917,10 @@ msgstr ""
 msgid "Enable the master switch first to control this option."
 msgstr ""
 
-#: syncery_ui/menu/_helpers.lua:254 syncery_ui/menu/annotations_section.lua:87
-#: syncery_ui/menu/annotations_section.lua:307
+#: syncery_ui/menu/_helpers.lua:254 syncery_ui/menu/annotations_section.lua:86
+#: syncery_ui/menu/annotations_section.lua:305
 #: syncery_ui/menu/maintenance_section.lua:61
-#: syncery_ui/menu/transport_section.lua:405
+#: syncery_ui/menu/transport_section.lua:403
 msgid "Save"
 msgstr ""
 
@@ -1861,25 +1939,25 @@ msgstr ""
 msgid "Please enter a number between %d and %d."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:80
+#: syncery_ui/menu/advanced_section.lua:79
 msgid "Deep clean – permanently erase all book data…"
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:94
+#: syncery_ui/menu/advanced_section.lua:93
 msgid "Open a book first — deep clean operates on the current book."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:95
+#: syncery_ui/menu/advanced_section.lua:94
 msgid "Tap to permanently delete the Syncery JSON files for this book."
 msgstr ""
 
-#: main.lua:1619 syncery_ui/menu/advanced_section.lua:99
-#: syncery_ui/menu/annotations_section.lua:221
+#: main.lua:1744 syncery_ui/menu/advanced_section.lua:98
+#: syncery_ui/menu/annotations_section.lua:219
 #: syncery_ui/menu/per_book_section.lua:147
 msgid "No document open."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:104
+#: syncery_ui/menu/advanced_section.lua:103
 msgid ""
 "This will permanently erase Syncery JSON files for this book.\n"
 "\n"
@@ -1888,26 +1966,26 @@ msgid ""
 "Are you sure?"
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:107
+#: syncery_ui/menu/advanced_section.lua:106
 msgid "Delete files"
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:171
+#: syncery_ui/menu/advanced_section.lua:170
 msgid "Syncery JSON files have been permanently deleted."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:199
+#: syncery_ui/menu/advanced_section.lua:198
 msgid ""
 "Erase every Syncery preference on this device (transports, what-to-sync toggles, storage mode, device name).\n"
 "\n"
 "The JSON files next to your books are NOT touched — only this device's settings. Restart KOReader afterwards."
 msgstr ""
 
-#: syncery_ui/menu/advanced_section.lua:205
+#: syncery_ui/menu/advanced_section.lua:204
 msgid "Reset all Syncery settings…"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:57
+#: syncery_ui/menu/annotations_section.lua:56
 #, lua-format
 msgid ""
 "Comma-separated extensions to sync, or * for every format.\n"
@@ -1920,19 +1998,19 @@ msgid ""
 "Recognised: %s"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:66
+#: syncery_ui/menu/annotations_section.lua:65
 msgid "File types to sync"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:72
+#: syncery_ui/menu/annotations_section.lua:71
 msgid "Reset to *"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:85
+#: syncery_ui/menu/annotations_section.lua:84
 msgid "Reset: all file types will be synced."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:129
+#: syncery_ui/menu/annotations_section.lua:128
 #, lua-format
 msgid ""
 "Saved: %s\n"
@@ -1940,213 +2018,213 @@ msgid ""
 "Note: unrecognised extension(s) kept as-is: %s"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:134
+#: syncery_ui/menu/annotations_section.lua:133
 #, lua-format
 msgid "Saved: sync %s files."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:162
+#: syncery_ui/menu/annotations_section.lua:160
 msgid "highlights"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:163
+#: syncery_ui/menu/annotations_section.lua:161
 msgid "notes"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:164
+#: syncery_ui/menu/annotations_section.lua:162
 msgid "bookmarks"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:172 syncery_ui/status_panel.lua:346
+#: syncery_ui/menu/annotations_section.lua:170 syncery_ui/status_panel.lua:344
 msgid "status"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:173
+#: syncery_ui/menu/annotations_section.lua:171
 msgid "rating"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:174
+#: syncery_ui/menu/annotations_section.lua:172
 msgid "collections"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:175
+#: syncery_ui/menu/annotations_section.lua:173
 msgid "custom"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:176
+#: syncery_ui/menu/annotations_section.lua:174
 msgid "TOC"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:185
-#: syncery_ui/menu/transport_section.lua:671
+#: syncery_ui/menu/annotations_section.lua:183
+#: syncery_ui/menu/transport_section.lua:669
 msgid "off"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:188
+#: syncery_ui/menu/annotations_section.lua:186
 msgid "none enabled"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:211
+#: syncery_ui/menu/annotations_section.lua:209
 msgid "Trash Bin (deleted annotations)…"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:216
+#: syncery_ui/menu/annotations_section.lua:214
 msgid "Open a book first — the Trash Bin shows that book's deleted annotations."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:245
+#: syncery_ui/menu/annotations_section.lua:243
 msgid ""
 "Sync text highlights across devices.\n"
 "\n"
 "Outbound filter only — highlights already received from other devices are never removed even when this is off."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:250
+#: syncery_ui/menu/annotations_section.lua:248
 msgid ""
 "Sync annotation notes across devices.\n"
 "\n"
 "Outbound filter only — notes already received from other devices are never removed even when this is off."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:255
+#: syncery_ui/menu/annotations_section.lua:253
 msgid ""
 "Sync bookmarks across devices.\n"
 "\n"
 "Outbound filter only — bookmarks already received from other devices are never removed even when this is off."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:262
+#: syncery_ui/menu/annotations_section.lua:260
 msgid "Sync annotations"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:263
+#: syncery_ui/menu/annotations_section.lua:261
 msgid "Master switch for all annotation syncing. Turn off to stop syncing highlights, notes, and bookmarks."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:102
+#: syncery_ui/menu/transport_section.lua:100
 msgid "syncing"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:672
+#: syncery_ui/menu/transport_section.lua:670
 msgid "unsupported"
 msgstr ""
 
-#: syncery_migration/storage_mode.lua:512
+#: syncery_migration/storage_mode.lua:509
 msgid "• %d in %s"
 msgstr ""
 
-#: main.lua:2989
+#: main.lua:3213
 msgid "…and %d more"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:420
+#: syncery_ui/menu/annotations_section.lua:418
 msgid "── Choose which settings to sync ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:266
+#: syncery_ui/menu/annotations_section.lua:264
 msgid "── Sync specific types ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:268
+#: syncery_ui/menu/annotations_section.lua:266
 msgid ""
 "These filters control which annotation types are saved and synced.\n"
 "\n"
 "They only take effect when the master switch above is enabled."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:275
+#: syncery_ui/menu/annotations_section.lua:273
 msgid "Highlights"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:277
+#: syncery_ui/menu/annotations_section.lua:275
 msgid "Notes"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:279
+#: syncery_ui/menu/annotations_section.lua:277
 msgid "Bookmarks"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:282
+#: syncery_ui/menu/annotations_section.lua:280
 msgid "── Annotation maintenance ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:284
+#: syncery_ui/menu/annotations_section.lua:282
 msgid "Tools for managing the annotations stored in Syncery's JSON file."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:295
+#: syncery_ui/menu/annotations_section.lua:293
 #, lua-format
 msgid "Tombstone retention: %d days"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:297
+#: syncery_ui/menu/annotations_section.lua:295
 msgid ""
 "Number of days deleted annotations stay in Trash before being permanently removed.\n"
 "\n"
 "Longer period gives more time for sync, shorter saves space."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:302
+#: syncery_ui/menu/annotations_section.lua:300
 msgid "Tombstone retention (days)"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:317
+#: syncery_ui/menu/annotations_section.lua:315
 #, lua-format
 msgid "Tombstone retention set to %d days."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:322
+#: syncery_ui/menu/annotations_section.lua:320
 msgid "Please enter a number between 1 and 365."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:345
+#: syncery_ui/menu/annotations_section.lua:343
 msgid "Sync book metadata"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:351
+#: syncery_ui/menu/annotations_section.lua:349
 msgid "── Choose which metadata to sync ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:353
+#: syncery_ui/menu/annotations_section.lua:351
 msgid "These fields are synced only when the master switch above is enabled."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:357
+#: syncery_ui/menu/annotations_section.lua:355
 msgid "Book status"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:358
+#: syncery_ui/menu/annotations_section.lua:356
 msgid "Sync the book's status (Finished, Reading, On Hold, etc.) across devices."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:361
+#: syncery_ui/menu/annotations_section.lua:359
 msgid "Rating"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:362
+#: syncery_ui/menu/annotations_section.lua:360
 msgid "Sync the star rating (0–5) across devices."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:365
+#: syncery_ui/menu/annotations_section.lua:363
 msgid "Collection membership"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:366
+#: syncery_ui/menu/annotations_section.lua:364
 msgid "Add or remove this book from Collections to match the most-recently-updated device."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:369
+#: syncery_ui/menu/annotations_section.lua:367
 msgid "Custom title / authors / series"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:370
+#: syncery_ui/menu/annotations_section.lua:368
 msgid ""
 "Sync user-edited book information (custom title, authors, series, language) across devices.\n"
 "\n"
 "Disabled by default — turn this on only if you actually edit book metadata manually on one device and want those edits to reach the others. Uses a timestamp to resolve conflicts: the device that edited most recently wins."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:470
+#: syncery_ui/menu/annotations_section.lua:467
 msgid ""
 "Sync highlights, notes, and bookmarks across devices.\n"
 "\n"
@@ -2154,39 +2232,39 @@ msgid ""
 msgstr ""
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:1308
-#: syncery_ui/menu/annotations_section.lua:532 syncery_ui/wizard.lua:166
+#: syncery_ui/menu/annotations_section.lua:533 syncery_ui/wizard.lua:165
 msgid "Annotations"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:490
+#: syncery_ui/menu/annotations_section.lua:487
 msgid "Sync the per-book summary note you can leave from the book's metadata screen.  Off by default — most people don't use it, and the field is small enough that adding it to sync increases merge surface area without much benefit."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:506
+#: syncery_ui/menu/annotations_section.lua:503
 msgid ""
 "Restrict syncing to certain file extensions, or use * for every format (the default).\n"
 "\n"
 "Useful if you keep non-book files in the same folder and want Syncery to ignore them."
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:543
+#: syncery_ui/menu/annotations_section.lua:544
 msgid "Book metadata"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:559
+#: syncery_ui/menu/annotations_section.lua:560
 msgid "Per-book summary note"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:585
+#: syncery_ui/menu/annotations_section.lua:593
 msgid "File types: all formats  (*)"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:586
+#: syncery_ui/menu/annotations_section.lua:594
 #, lua-format
 msgid "File types: %s"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:567
+#: syncery_ui/menu/annotations_section.lua:575
 msgid "Adapt highlight style to this device"
 msgstr ""
 
@@ -2236,11 +2314,11 @@ msgstr ""
 msgid "Deep clean (permanently delete this book's JSON files) and reset-all-settings live here. Each confirms before acting."
 msgstr ""
 
-#: syncery_ui/menu/init.lua:204 syncery_ui/wizard.lua:276
+#: syncery_ui/menu/init.lua:204 syncery_ui/wizard.lua:275
 msgid "progress"
 msgstr ""
 
-#: syncery_ui/menu/init.lua:205 syncery_ui/wizard.lua:277
+#: syncery_ui/menu/init.lua:205 syncery_ui/wizard.lua:276
 msgid "annotations"
 msgstr ""
 
@@ -2277,7 +2355,7 @@ msgstr ""
 msgid "Per-book actions for the open book."
 msgstr ""
 
-#: syncery_ui/menu/init.lua:330 syncery_ui/menu/transport_section.lua:640
+#: syncery_ui/menu/init.lua:330 syncery_ui/menu/transport_section.lua:638
 msgid "Advanced"
 msgstr ""
 
@@ -2289,7 +2367,7 @@ msgstr ""
 msgid "One predictable home for the rare set-once and diagnostic items, plus destructive operations."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:56 syncery_ui/wizard.lua:246
+#: syncery_ui/menu/maintenance_section.lua:56 syncery_ui/wizard.lua:245
 msgid "Name this device"
 msgstr ""
 
@@ -2318,7 +2396,7 @@ msgid ""
 "This ID is embedded in every sync file so other devices know which entry belongs to whom.  It is read-only — tap to see the full value or a QR code you can scan from another device."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:106 syncery_ui/wizard.lua:353
+#: syncery_ui/menu/maintenance_section.lua:106 syncery_ui/wizard.lua:352
 #, lua-format
 msgid "Device name: %s"
 msgstr ""
@@ -2385,92 +2463,92 @@ msgstr ""
 msgid "Move all existing Syncery data from the previous storage location to the current one. Books already in the new location are skipped."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:248
+#: syncery_ui/menu/maintenance_section.lua:247
 msgid ""
 "Remove any leftover temporary upload files from the cloud staging directory.\n"
 "\n"
 "Syncery uses this directory while preparing files for Dropbox / WebDAV / FTP. Files there are normally removed right after upload — if any remain, it usually means a previous upload was interrupted by a crash or power loss."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:256
+#: syncery_ui/menu/maintenance_section.lua:255
 msgid "Clean cloud upload staging"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:259
+#: syncery_ui/menu/maintenance_section.lua:258
 msgid "Tap to remove any temporary files Syncery left behind while preparing cloud uploads. No data is uploaded or downloaded."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:277
+#: syncery_ui/menu/maintenance_section.lua:276
 #, lua-format
 msgid "Removed %d leftover staging file(s)."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:278
+#: syncery_ui/menu/maintenance_section.lua:277
 msgid "Staging directory was already empty."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:320
+#: syncery_ui/menu/maintenance_section.lua:319
 msgid "Book data save interval (seconds)"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:321
+#: syncery_ui/menu/maintenance_section.lua:320
 msgid "How often reading progress and annotations are saved while reading. Saved on book close and on sleep too, so a larger value here just saves battery."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:324
+#: syncery_ui/menu/maintenance_section.lua:323
 msgid "s"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:326
+#: syncery_ui/menu/maintenance_section.lua:325
 #, lua-format
 msgid "Book data save interval: %d s"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:340
+#: syncery_ui/menu/maintenance_section.lua:339
 msgid ""
 "Trigger an immediate Syncthing scan on every configured folder so changes are picked up without waiting for the next automatic cycle.\n"
 "\n"
 "Wi-Fi and a valid API key are required."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:354
+#: syncery_ui/menu/maintenance_section.lua:353
 msgid ""
 "Show an in-memory log of the sync events that happened during this reading session.\n"
 "\n"
 "Useful for confirming that saves and Syncthing scans fired as expected, or for diagnosing why something did not sync."
 msgstr ""
 
+#: syncery_ui/menu/maintenance_section.lua:462
 #: syncery_ui/menu/maintenance_section.lua:464
-#: syncery_ui/menu/maintenance_section.lua:466
 msgid "Maintenance actions for the Syncthing integration."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:473
+#: syncery_ui/menu/maintenance_section.lua:471
 msgid "Rescan all Syncthing folders"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:436
+#: syncery_ui/menu/maintenance_section.lua:434
 msgid "Remove orphaned sync files…"
 msgstr ""
 
+#: syncery_ui/menu/maintenance_section.lua:497
 #: syncery_ui/menu/maintenance_section.lua:499
-#: syncery_ui/menu/maintenance_section.lua:501
 msgid "Maintenance actions for the cloud upload pipeline."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:447
+#: syncery_ui/menu/maintenance_section.lua:445
 msgid "Recent sync activity"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:422
+#: syncery_ui/menu/maintenance_section.lua:420
 msgid "Manage all synced books…"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:423
+#: syncery_ui/menu/maintenance_section.lua:421
 msgid "View a list of all books that have Syncery data and selectively reset or delete their synced information."
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:425
+#: syncery_ui/menu/maintenance_section.lua:423
 msgid "Tap to see a list of synced books and manage their data."
 msgstr ""
 
@@ -2506,105 +2584,105 @@ msgstr ""
 msgid "All synced data has been marked as deleted."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:117
+#: syncery_ui/menu/status_section.lua:115
 msgid " — tap to resolve"
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:137
+#: syncery_ui/menu/status_section.lua:135
 msgid "When a transport needs attention, tap to open its setup and resolve the issue."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:164
+#: syncery_ui/menu/status_section.lua:162
 msgid "Sync this book"
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:165
+#: syncery_ui/menu/status_section.lua:163
 msgid ""
 "When enabled, Syncery syncs reading progress and annotations for this book across devices.\n"
 "\n"
 "Uncheck to exclude this book — useful if you want your reading activity kept to this device only, or for books you are reading temporarily."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:178
+#: syncery_ui/menu/status_section.lua:176
 msgid "No document is open — open a book first to control its sync setting."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:180
+#: syncery_ui/menu/status_section.lua:178
 msgid "Enable to sync this book's progress and annotations. Disable to exclude it."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:187
+#: syncery_ui/menu/status_section.lua:185
 msgid "Syncing enabled for this book."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:188
+#: syncery_ui/menu/status_section.lua:186
 msgid "Syncing disabled for this book."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:221
+#: syncery_ui/menu/status_section.lua:219
 msgid "Syncing…"
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:222
+#: syncery_ui/menu/status_section.lua:220
 msgid "Sync now"
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:224
+#: syncery_ui/menu/status_section.lua:222
 msgid ""
 "Save progress and annotations right now, then trigger a Syncthing folder scan so other devices receive the update immediately.\n"
 "\n"
 "Syncery saves automatically as you read — use this when you want to push an update without waiting."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:233
+#: syncery_ui/menu/status_section.lua:231
 msgid "No document is open — open a book first to sync it."
 msgstr ""
 
-#: syncery_ui/menu/status_section.lua:234
+#: syncery_ui/menu/status_section.lua:232
 msgid "Tap to save and push now."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:252 syncery_ui/wizard.lua:232
+#: syncery_ui/menu/transport_section.lua:250 syncery_ui/wizard.lua:231
 msgid "Syncthing API key"
 msgstr ""
 
-#: syncery_ui/wizard.lua:236
+#: syncery_ui/wizard.lua:235
 msgid "Find it in Syncthing → Settings → GUI → API Key."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:112
+#: syncery_ui/menu/transport_section.lua:110
 msgid "Looking for Syncthing folders…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:137
+#: syncery_ui/menu/transport_section.lua:135
 msgid ""
 "No API key set.\n"
 "Enter the Syncthing API key first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:135
-#: syncery_ui/menu/transport_section.lua:222
-#: syncery_ui/menu/transport_section.lua:281
+#: syncery_ui/menu/transport_section.lua:133
+#: syncery_ui/menu/transport_section.lua:220
+#: syncery_ui/menu/transport_section.lua:279
 #: syncery_ui/wizard_presenter.lua:145
 msgid ""
 "API key rejected.\n"
 "Check Syncthing → Settings → GUI → API Key."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:133
+#: syncery_ui/menu/transport_section.lua:131
 msgid "Connected, but Syncthing reports no folders to sync."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:211
+#: syncery_ui/menu/transport_section.lua:209
 msgid "Testing Syncthing connection…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:216
+#: syncery_ui/menu/transport_section.lua:214
 #: syncery_ui/wizard_presenter.lua:143
 msgid "Syncthing is reachable and the API key is valid."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:225
+#: syncery_ui/menu/transport_section.lua:223
 #, lua-format
 msgid "Unexpected HTTP %d response from Syncthing."
 msgstr ""
@@ -2623,41 +2701,41 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:258
-#: syncery_ui/menu/transport_section.lua:626
+#: syncery_ui/menu/transport_section.lua:256
+#: syncery_ui/menu/transport_section.lua:624
 #: syncery_ui/wizard_presenter.lua:350
 msgid "Test connection"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:265
+#: syncery_ui/menu/transport_section.lua:263
 #: syncery_ui/wizard_presenter.lua:137
 msgid ""
 "No network connection.\n"
 "Your settings are saved — test the connection once you're back online."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:268
+#: syncery_ui/menu/transport_section.lua:266
 msgid "Testing connection…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:279
+#: syncery_ui/menu/transport_section.lua:277
 msgid ""
 "No API key set.\n"
 "Restart the wizard and enter an API key."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:365
+#: syncery_ui/menu/transport_section.lua:363
 msgid "Cloud storage picker is unavailable in this KOReader build."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:340
+#: syncery_ui/menu/transport_section.lua:338
 #, lua-format
 msgid ""
 "Cloud destination set: %s.\n"
 "Restart KOReader if uploads don't appear."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:380
+#: syncery_ui/menu/transport_section.lua:378
 msgid ""
 "Clear the saved cloud destination?\n"
 "\n"
@@ -2665,160 +2743,160 @@ msgid ""
 msgstr ""
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:2060
-#: syncery_ui/menu/transport_section.lua:381
+#: syncery_ui/menu/transport_section.lua:379
 msgid "Clear"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:387
+#: syncery_ui/menu/transport_section.lua:385
 msgid "Cloud destination cleared."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:397
+#: syncery_ui/menu/transport_section.lua:395
 msgid "Cloud upload delay (seconds)"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:465
+#: syncery_ui/menu/transport_section.lua:463
 msgid "Checking cloud settings…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:470
+#: syncery_ui/menu/transport_section.lua:468
 msgid ""
 "Cloud destination is configured.\n"
 "Syncery will verify it can reach the server on the next sync."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:473
+#: syncery_ui/menu/transport_section.lua:471
 msgid ""
 "No cloud destination set.\n"
 "Tap 'Pick destination' first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:496
+#: syncery_ui/menu/transport_section.lua:494
 #, lua-format
 msgid "Destination: %s"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:497
+#: syncery_ui/menu/transport_section.lua:495
 msgid "Destination: (not set)"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:499
+#: syncery_ui/menu/transport_section.lua:497
 msgid "Where Syncery uploads JSON files. Tap to pick or change."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:501
+#: syncery_ui/menu/transport_section.lua:499
 msgid "Tap to pick or change the cloud destination (Dropbox / WebDAV / FTP)."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:507
+#: syncery_ui/menu/transport_section.lua:505
 msgid "Clear destination"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:508
+#: syncery_ui/menu/transport_section.lua:506
 msgid "Forget the saved destination on this device only."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:513
+#: syncery_ui/menu/transport_section.lua:511
 msgid "There is no saved destination to clear yet."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:514
+#: syncery_ui/menu/transport_section.lua:512
 msgid "Removes the saved server. No files are deleted."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:521
+#: syncery_ui/menu/transport_section.lua:519
 #, lua-format
 msgid "Upload delay: %d s"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:524
+#: syncery_ui/menu/transport_section.lua:522
 msgid "Debounce window after a save before uploading. Higher values protect rate-limited providers."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:527
+#: syncery_ui/menu/transport_section.lua:525
 msgid "Tap to change how long Syncery waits after a save before uploading to the cloud."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:534
+#: syncery_ui/menu/transport_section.lua:532
 msgid "Check that a cloud destination is set. Reachability is verified on the next sync."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:539
+#: syncery_ui/menu/transport_section.lua:537
 msgid "Pick a destination first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:540
+#: syncery_ui/menu/transport_section.lua:538
 msgid "Tap to check the cloud destination is configured."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:611
+#: syncery_ui/menu/transport_section.lua:609
 msgid "Choose Syncthing folder"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:612
+#: syncery_ui/menu/transport_section.lua:610
 msgid ""
 "Ask Syncthing which folders it has and pick the one to sync, so you don't have to type the folder ID by hand.\n"
 "\n"
 "Works with any Syncthing reachable over its web address."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:621
+#: syncery_ui/menu/transport_section.lua:619
 msgid "Tap to choose which Syncthing folder to sync."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:587
+#: syncery_ui/menu/transport_section.lua:585
 msgid "Send a ping to the Syncthing REST API to verify the API key is correct and Syncthing is running."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:643
+#: syncery_ui/menu/transport_section.lua:641
 msgid "Tap to open the advanced Syncthing configuration."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:667 syncery_ui/status_panel.lua:156
+#: syncery_ui/menu/transport_section.lua:665 syncery_ui/status_panel.lua:154
 msgid "ready"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:668 syncery_ui/status_section.lua:171
+#: syncery_ui/menu/transport_section.lua:666 syncery_ui/status_section.lua:155
 msgid "not configured"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:669
+#: syncery_ui/menu/transport_section.lua:667
 msgid "retrying…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:101
-#: syncery_ui/menu/transport_section.lua:670 syncery_ui/status_panel.lua:155
+#: syncery_ui/menu/transport_section.lua:99
+#: syncery_ui/menu/transport_section.lua:668 syncery_ui/status_panel.lua:153
 msgid "error"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:691
+#: syncery_ui/menu/transport_section.lua:689
 msgid ""
 "Nudges Syncthing's REST API after every save so changes propagate immediately, without waiting for Syncthing's own periodic scan cycle.\n"
 "\n"
 "Disable this if you use a different sync tool — Syncery will still write its JSON files; your sync tool just picks them up on its own schedule."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:705
+#: syncery_ui/menu/transport_section.lua:703
 msgid "Syncthing integration"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:734
+#: syncery_ui/menu/transport_section.lua:732
 msgid "Configure Syncthing…"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:735
+#: syncery_ui/menu/transport_section.lua:733
 msgid "Wizard, manual API key / folder settings, connection test, and setup guides."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:743
+#: syncery_ui/menu/transport_section.lua:741
 msgid "Enable Syncthing integration first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:744
+#: syncery_ui/menu/transport_section.lua:742
 msgid "Tap to configure Syncthing: wizard, API key / folder ID, test, and guides."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:751
+#: syncery_ui/menu/transport_section.lua:749
 msgid ""
 "Upload Syncery's per-book JSON files to a cloud destination (Dropbox, WebDAV, or FTP) using KOReader's built-in cloud storage picker.\n"
 "\n"
@@ -2827,454 +2905,454 @@ msgid ""
 "Cloud and Syncthing can be enabled at the same time, but running both is rarely necessary."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:763
+#: syncery_ui/menu/transport_section.lua:761
 msgid "Cloud storage"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:792
+#: syncery_ui/menu/transport_section.lua:790
 msgid "Cloud settings"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:793
+#: syncery_ui/menu/transport_section.lua:791
 msgid "Choose the cloud destination and tune upload behaviour."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:798
+#: syncery_ui/menu/transport_section.lua:796
 msgid "Enable Cloud storage first."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:799
+#: syncery_ui/menu/transport_section.lua:797
 msgid "Tap to set up Dropbox / WebDAV / FTP and adjust upload timing."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:84 syncery_ui/status_ui/init.lua:86
+#: syncery_ui/status_panel.lua:82 syncery_ui/status_ui/init.lua:82
 msgid "never"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:86 syncery_ui/status_panel.lua:87
-#: syncery_ui/status_ui/init.lua:88 syncery_ui/trash/init.lua:151
+#: syncery_ui/status_panel.lua:84 syncery_ui/status_panel.lua:85
+#: syncery_ui/status_ui/init.lua:84 syncery_ui/trash/init.lua:150
 msgid "just now"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:88 syncery_ui/status_ui/init.lua:89
-#: syncery_ui/trash/init.lua:152
+#: syncery_ui/status_panel.lua:86 syncery_ui/status_ui/init.lua:85
+#: syncery_ui/trash/init.lua:151
 #, lua-format
 msgid "%d min ago"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:89 syncery_ui/status_ui/init.lua:90
-#: syncery_ui/trash/init.lua:153
+#: syncery_ui/status_panel.lua:87 syncery_ui/status_ui/init.lua:86
+#: syncery_ui/trash/init.lua:152
 #, lua-format
 msgid "%d hr ago"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:90 syncery_ui/trash/init.lua:154
+#: syncery_ui/status_panel.lua:88 syncery_ui/trash/init.lua:153
 #, lua-format
 msgid "%d days ago"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:143
+#: syncery_ui/status_panel.lua:141
 msgid "This transport is not active."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:145
+#: syncery_ui/status_panel.lua:143
 msgid "Enable it from the sync menu to see its status here."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:152
+#: syncery_ui/status_panel.lua:150
 msgid "disabled"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:153
+#: syncery_ui/status_panel.lua:151
 msgid "needs setup"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:154
+#: syncery_ui/status_panel.lua:152
 msgid "retrying"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:164
+#: syncery_ui/status_panel.lua:162
 msgid "Status: "
 msgstr ""
 
-#: syncery_ui/status_panel.lua:166
+#: syncery_ui/status_panel.lua:164
 msgid "Available: "
 msgstr ""
 
-#: syncery_ui/status_panel.lua:167 syncery_ui/status_panel.lua:186
+#: syncery_ui/status_panel.lua:165 syncery_ui/status_panel.lua:184
 msgid "yes"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:167 syncery_ui/status_panel.lua:186
+#: syncery_ui/status_panel.lua:165 syncery_ui/status_panel.lua:184
 msgid "no"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:183
+#: syncery_ui/status_panel.lua:181
 msgid "Last error: "
 msgstr ""
 
-#: syncery_ui/status_panel.lua:185
+#: syncery_ui/status_panel.lua:183
 msgid "Pending retry: "
 msgstr ""
 
-#: syncery_ui/status_panel.lua:215
+#: syncery_ui/status_panel.lua:213
 msgid "No books are waiting to sync on this transport."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:218
+#: syncery_ui/status_panel.lua:216
 #, lua-format
 msgid "Books with pending sync state (%d):"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:225
+#: syncery_ui/status_panel.lua:223
 msgid "(unknown book)"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:229
+#: syncery_ui/status_panel.lua:227
 #, lua-format
 msgid "    retry pending · last attempt %s"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:232
+#: syncery_ui/status_panel.lua:230
 #, lua-format
 msgid "    error: %s · last attempt %s"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:237
+#: syncery_ui/status_panel.lua:235
 #, lua-format
 msgid " · %d consecutive failures"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:322
+#: syncery_ui/status_panel.lua:320
 msgid "Stop Syncthing daemon"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:324
+#: syncery_ui/status_panel.lua:322
 msgid "Start Syncthing daemon"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:326
+#: syncery_ui/status_panel.lua:324
 msgid "Syncthing daemon control"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:340
+#: syncery_ui/status_panel.lua:338
 msgid "No transport selected."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:375
+#: syncery_ui/status_panel.lua:373
 msgid "Syncthing daemon stopped."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:376
+#: syncery_ui/status_panel.lua:374
 msgid "Syncthing daemon started."
 msgstr ""
 
-#: syncery_ui/status_panel.lua:383
+#: syncery_ui/status_panel.lua:381
 #, lua-format
 msgid "Could not change the Syncthing daemon: %s"
 msgstr ""
 
-#: syncery_ui/status_panel.lua:384
+#: syncery_ui/status_panel.lua:382
 msgid "unknown error"
 msgstr ""
 
-#: syncery_ui/status_section.lua:116
+#: syncery_ui/status_section.lua:103
 #, lua-format
 msgid "%s: unsupported provider"
 msgstr ""
 
-#: syncery_ui/status_section.lua:118
+#: syncery_ui/status_section.lua:105
 #, lua-format
 msgid "%s: not set"
 msgstr ""
 
-#: syncery_ui/status_section.lua:120
+#: syncery_ui/status_section.lua:107
 #, lua-format
 msgid "%s: …"
 msgstr ""
 
-#: syncery_ui/status_section.lua:122
+#: syncery_ui/status_section.lua:109
 #, lua-format
 msgid "%s: ok"
 msgstr ""
 
-#: syncery_ui/status_section.lua:124
+#: syncery_ui/status_section.lua:111
 #, lua-format
 msgid "%s: idle"
 msgstr ""
 
-#: syncery_ui/status_section.lua:129
+#: syncery_ui/status_section.lua:116
 msgid "cloud"
 msgstr ""
 
-#: syncery_ui/status_section.lua:146
+#: syncery_ui/status_section.lua:132
 msgid "no sync"
 msgstr ""
 
-#: syncery_ui/status_section.lua:169
+#: syncery_ui/status_section.lua:153
 msgid "idle"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:392
+#: syncery_ui/menu/maintenance_section.lua:390
 msgid "── Your Syncery data ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:562
+#: syncery_ui/menu/annotations_section.lua:570
 msgid "── on this device ──"
 msgstr ""
 
-#: syncery_ui/menu/annotations_section.lua:525
+#: syncery_ui/menu/annotations_section.lua:526
 msgid "── synced both ways ──"
 msgstr ""
 
-#: syncery_ui/status_section.lua:244
+#: syncery_ui/status_section.lua:228
 #, lua-format
 msgid "⚠ %s authentication failed"
 msgstr ""
 
-#: syncery_ui/status_section.lua:246
+#: syncery_ui/status_section.lua:230
 #, lua-format
 msgid "⚠ %s needs setup"
 msgstr ""
 
-#: syncery_ui/status_section.lua:252
+#: syncery_ui/status_section.lua:236
 #, lua-format
 msgid "Retrying %s…"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:140
+#: syncery_ui/status_ui/init.lua:136
 #, lua-format
 msgid "Page %d of %d%s"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:144
+#: syncery_ui/status_ui/init.lua:140
 msgid "This device"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:145
+#: syncery_ui/status_ui/init.lua:141
 msgid "This device: "
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:176
+#: syncery_ui/status_ui/init.lua:172
 msgid "No other devices seen for this book."
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:178
+#: syncery_ui/status_ui/init.lua:174
 msgid "Other devices:"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:188
+#: syncery_ui/status_ui/init.lua:184
 #, lua-format
 msgid "… and %d more"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:197
+#: syncery_ui/status_ui/init.lua:193
 msgid "Jump to device…"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:208
+#: syncery_ui/status_ui/init.lua:204
 msgid "Show fewer"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:217
+#: syncery_ui/status_ui/init.lua:213
 msgid "Show all"
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:235
+#: syncery_ui/status_ui/init.lua:231
 msgid "Syncery Status"
 msgstr ""
 
-#: syncery_ui/progress_browser/init.lua:157 syncery_ui/status_ui/init.lua:293
+#: syncery_ui/progress_browser/init.lua:157 syncery_ui/status_ui/init.lua:289
 msgid "Jumped to position from "
 msgstr ""
 
-#: syncery_ui/status_ui/init.lua:303
+#: syncery_ui/status_ui/init.lua:299
 msgid "Jump to device"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:149
+#: syncery_ui/trash/init.lua:148
 msgid "unknown time"
 msgstr ""
 
-#: syncery_ui/wizard.lua:318
+#: syncery_ui/wizard.lua:317
 #, lua-format
 msgid "Transport: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:126
+#: syncery_ui/trash/init.lua:125
 msgid "(bookmark)"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:126
+#: syncery_ui/trash/init.lua:125
 msgid "(no text)"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:182
+#: syncery_ui/trash/init.lua:181
 #, lua-format
 msgid "Type: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:183
+#: syncery_ui/trash/init.lua:182
 #, lua-format
 msgid "Page: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:184
+#: syncery_ui/trash/init.lua:183
 #, lua-format
 msgid "Chapter: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:185
+#: syncery_ui/trash/init.lua:184
 #, lua-format
 msgid "Deleted: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:187
+#: syncery_ui/trash/init.lua:186
 #, lua-format
 msgid "Deleted on: %s"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:191
+#: syncery_ui/trash/init.lua:190
 msgid "Text:"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:196
+#: syncery_ui/trash/init.lua:195
 msgid "Note:"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:202
+#: syncery_ui/trash/init.lua:201
 msgid "Deleted annotation"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:210
+#: syncery_ui/trash/init.lua:209
 msgid "Restore"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:217
+#: syncery_ui/trash/init.lua:216
 msgid "Annotation restored."
 msgstr ""
 
-#: syncery_ui/trash/init.lua:224
+#: syncery_ui/trash/init.lua:223
 msgid "Could not restore annotation."
 msgstr ""
 
-#: syncery_ui/trash/init.lua:248
+#: syncery_ui/trash/init.lua:247
 msgid "Trash is empty — nothing to restore."
 msgstr ""
 
-#: syncery_ui/trash/init.lua:257
+#: syncery_ui/trash/init.lua:256
 #, lua-format
 msgid "Restore all (%d item)"
 msgid_plural "Restore all (%d items)"
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/trash/init.lua:262
+#: syncery_ui/trash/init.lua:261
 #, lua-format
 msgid "Restore all %d deleted annotation?"
 msgid_plural "Restore all %d deleted annotations?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/trash/init.lua:265
+#: syncery_ui/trash/init.lua:264
 msgid "Restore all"
 msgstr ""
 
-#: syncery_ui/trash/init.lua:277
+#: syncery_ui/trash/init.lua:276
 #, lua-format
 msgid "%d annotation restored."
 msgid_plural "%d annotations restored."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/trash/init.lua:287
+#: syncery_ui/trash/init.lua:286
 #, lua-format
 msgid "%d annotation could not be restored."
 msgid_plural "%d annotations could not be restored."
 msgstr[0] ""
 msgstr[1] ""
 
-#: syncery_ui/trash/init.lua:342
+#: syncery_ui/trash/init.lua:341
 msgid "Deleted annotations"
 msgstr ""
 
-#: syncery_ui/menu/maintenance_section.lua:498 syncery_ui/wizard.lua:132
-#: syncery_ui/wizard.lua:311 syncery_ui/wizard.lua:345
+#: syncery_ui/menu/maintenance_section.lua:496 syncery_ui/wizard.lua:131
+#: syncery_ui/wizard.lua:310 syncery_ui/wizard.lua:344
 msgid "Cloud"
 msgstr ""
 
-#: syncery_ui/wizard.lua:133
+#: syncery_ui/wizard.lua:132
 msgid "Dropbox / WebDAV / FTP"
 msgstr ""
 
-#: syncery_ui/wizard.lua:135 syncery_ui/wizard.lua:313
+#: syncery_ui/wizard.lua:134 syncery_ui/wizard.lua:312
 msgid "Decide later"
 msgstr ""
 
-#: syncery_ui/wizard.lua:136
+#: syncery_ui/wizard.lua:135
 msgid "Set this up later from the menu"
 msgstr ""
 
-#: syncery_ui/wizard.lua:163
+#: syncery_ui/wizard.lua:162
 msgid "How far you've read, across devices"
 msgstr ""
 
-#: syncery_ui/wizard.lua:167
+#: syncery_ui/wizard.lua:166
 msgid "Highlights, notes and bookmarks"
 msgstr ""
 
-#: syncery_ui/wizard.lua:210
+#: syncery_ui/wizard.lua:209
 msgid "The annotations you already have are safe"
 msgstr ""
 
-#: syncery_ui/wizard.lua:240
+#: syncery_ui/wizard.lua:239
 msgid "What should Syncery sync?"
 msgstr ""
 
-#: syncery_ui/wizard.lua:247
+#: syncery_ui/wizard.lua:246
 msgid "So you know whose progress is whose. Defaults to the device model."
 msgstr ""
 
-#: syncery_ui/wizard.lua:252
+#: syncery_ui/wizard.lua:251
 msgid "Setup complete"
 msgstr ""
 
-#: syncery_ui/wizard.lua:292
+#: syncery_ui/wizard.lua:291
 msgid "Syncery will sync: nothing yet."
 msgstr ""
 
-#: syncery_ui/wizard.lua:295
+#: syncery_ui/wizard.lua:294
 #, lua-format
 msgid "Syncery will sync: %s."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:139
-#: syncery_ui/menu/transport_section.lua:228
-#: syncery_ui/menu/transport_section.lua:283
+#: syncery_ui/menu/transport_section.lua:137
+#: syncery_ui/menu/transport_section.lua:226
+#: syncery_ui/menu/transport_section.lua:281
 #: syncery_ui/wizard_presenter.lua:147
 msgid "Could not reach Syncthing. Is it running?"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:152
+#: syncery_ui/menu/transport_section.lua:150
 msgid "Found and selected your only configured folder \"%s\". If it's the wrong one, set the correct folder in Syncthing, then choose it from the folder list."
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:190
+#: syncery_ui/menu/transport_section.lua:188
 msgid "Choose a folder to sync"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:553
+#: syncery_ui/menu/transport_section.lua:551
 msgid "Syncthing port"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:558
+#: syncery_ui/menu/transport_section.lua:556
 msgid "Syncthing port: %d"
 msgstr ""
 
-#: syncery_ui/menu/transport_section.lua:554
+#: syncery_ui/menu/transport_section.lua:552
 msgid "Default: 8384. Change only if your Syncthing GUI uses a non-standard port. It must be between 1024 and 65535."
 msgstr ""
 
-#: syncery_ui/menu/per_book_section.lua:331
+#: syncery_ui/menu/per_book_section.lua:330
 msgid "⚠ Reading status differs — tap to resolve"
 msgstr ""

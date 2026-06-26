@@ -32,6 +32,7 @@ local TextViewer  = require("ui/widget/textviewer")
 
 local Util         = require("syncery_util")
 local Trash        = require("syncery_ui/trash/init")
+local DbSyncSec    = require("syncery_ui/menu/db_sync_section")
 
 local H = require("syncery_ui/menu/_helpers")
 local _ = H._
@@ -505,6 +506,10 @@ function A.menuWhatToSync(plugin)
         .. "Useful if you keep non-book files in the same folder and want "
         .. "Syncery to ignore them.")
 
+    local db_sync_help = _(
+        "Sync Reading Statistics and Vocabulary Builder across devices, "
+        .. "through their own cloud sync.  Tap to choose which, and how it works.")
+
     -- GOVERNING PRINCIPLE: rows are grouped by the NATURE of the sync link,
     -- not by frequency.  "Reading position" is surfaced first because it is
     -- the one cluster where direction is a real choice; everything else is
@@ -553,6 +558,13 @@ function A.menuWhatToSync(plugin)
         },
         H.makeBoolToggle(plugin, "sync_summary", "syncery_sync_summary",
             _("Per-book summary note"), summary_help),
+        {
+            text                = _("Statistics & Vocabulary"),
+            help_text           = db_sync_help,
+            keep_menu_open      = true,
+            hold_callback       = H.helpHold(db_sync_help),
+            sub_item_table_func = function() return DbSyncSec.menuDbSync(plugin) end,
+        },
 
         {
             text         = _("── on this device ──"),

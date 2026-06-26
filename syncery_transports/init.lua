@@ -94,6 +94,8 @@ function M.build(opts)
         -- backend reports unavailable and the selector falls back to syncservice).
         return CloudTransport.new({
             ui_cloudstorage_resolver = opts.ui_cloudstorage_resolver,
+            on_server_responded      = opts.on_server_responded,
+            on_reconciled            = opts.on_reconciled,
         })
     end)
 

@@ -90,6 +90,20 @@ local KEY_SYNCTHING_SCHEME    = "syncery_syncthing_scheme"
 -- G_reader_settings returns for a previously-saved table value.  No
 -- JSON wrapping required.
 local KEY_CLOUD_SERVER = "syncery_cloud_server"
+-- Cached resolved IP for the cloud server's host, persisted across sessions so
+-- the reachability probe has a non-blocking target from cold start (see
+-- cloud_reachability.lua).  An internal cache, not a user-facing setting:
+-- {host, ip}, re-resolved by the module when the host changes or the IP goes
+-- stale.  No `fire` on write -- nothing in the menu/transports reacts to it.
+local KEY_CLOUD_SERVER_IP = "syncery_cloud_server_ip"
+
+-- DB sync (Reading Statistics + Vocabulary Builder).  Trigger-only flags
+-- Syncery consults at close/suspend; the master is OFF by default.
+local KEY_DB_SYNC_ENABLED  = "syncery_db_sync_enabled"
+local KEY_DB_SYNC_STATS    = "syncery_db_sync_stats"
+local KEY_DB_SYNC_VOCAB    = "syncery_db_sync_vocab"
+local KEY_DB_SYNC_INTERVAL = "syncery_db_sync_interval_min"
+local KEY_DB_SYNC_UNIFY    = "syncery_db_sync_unify"
 
 
 -- ----------------------------------------------------------------------------
@@ -310,6 +324,27 @@ function Settings.clear_cloud_server()
 end
 
 
+--- Read the cached {host, ip} for the cloud server (or nil).  Seeds
+--- CloudReachability so its probe is non-blocking from the first call of a
+--- session.  Validated shape: a table carrying string host + ip.
+function Settings.get_cloud_server_ip()
+    local v = gs(KEY_CLOUD_SERVER_IP, nil)
+    if type(v) ~= "table" or type(v.host) ~= "string" or type(v.ip) ~= "string" then
+        return nil
+    end
+    return v
+end
+
+
+--- Persist the resolved {host, ip}.  Returns false on non-string input (so a
+--- bad resolve never poisons the cache).  No `fire` -- internal cache only.
+function Settings.set_cloud_server_ip(host, ip)
+    if type(host) ~= "string" or type(ip) ~= "string" then return false end
+    ss(KEY_CLOUD_SERVER_IP, { host = host, ip = ip })
+    return true
+end
+
+
 --- A short, human-readable summary for menu rows.  Provider kind + a
 --- path/URL when we have one.  Returns nil when no server is set.
 function Settings.describe_cloud_server()
@@ -325,6 +360,50 @@ end
 function Settings.is_cloud_configured()
     local s = Settings.get_cloud_server()
     return s ~= nil and (s.url ~= nil or s.address ~= nil)
+end
+
+
+-- ----------------------------------------------------------------------------
+-- DB sync (Reading Statistics + Vocabulary Builder).
+--
+-- Trigger-only flags read at close/suspend to decide whether to call the two
+-- plugins' own Cloud-storage sync.  Master defaults OFF; the per-DB sub-toggles
+-- default ON but are only consulted when the master is ON.  Booleans follow the
+-- enabled-flag pattern (no setter — the menu writes the key directly, like
+-- syncery_use_cloud).  When the master is OFF nothing here is consulted and
+-- Syncery's behaviour is identical to before this feature.
+-- ----------------------------------------------------------------------------
+
+
+function Settings.get_db_sync_enabled() return gs(KEY_DB_SYNC_ENABLED, false) == true end
+function Settings.get_db_sync_stats()   return gs(KEY_DB_SYNC_STATS,   true)  == true end
+function Settings.get_db_sync_vocab()   return gs(KEY_DB_SYNC_VOCAB,   true)  == true end
+-- Tier 2 opt-in: when ON, Syncery writes its OWN cloud server into the stats and
+-- vocab plugins (unifying their config with Syncery's).  Touches other plugins'
+-- settings, so it defaults OFF and is consulted only when the master is ON.
+function Settings.get_db_sync_unify()   return gs(KEY_DB_SYNC_UNIFY,   false) == true end
+
+
+--- Periodic DB-sync interval in minutes.  The standalone timer (main.lua) uses
+--- this for its self-rescheduling tick.  Default 5; floor 1 -- a non-number or
+--- sub-1 stored value falls back to the default so the timer always gets a sane
+--- scheduleIn delay.
+function Settings.get_db_sync_interval_min()
+    local v = gs(KEY_DB_SYNC_INTERVAL, 5)
+    if type(v) ~= "number" or v < 1 then return 5 end
+    return v
+end
+
+
+--- Persist the DB-sync interval (minutes).  Rejects non-numbers; floors
+--- fractional input and clamps the floor to 1 (the getter's invariant).
+--- Returns the stored integer, or nil if the input wasn't a number.
+function Settings.set_db_sync_interval_min(n)
+    if type(n) ~= "number" then return nil end
+    n = math.floor(n)
+    if n < 1 then n = 1 end
+    ss(KEY_DB_SYNC_INTERVAL, n)
+    return n
 end
 
 

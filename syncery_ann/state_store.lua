@@ -218,6 +218,14 @@ end
 ---
 --- @param loaded_state table A table that came from JSON decode.
 --- @return table A state guaranteed to have schema_version + 3 sections.
+--- The canonical EMPTY annotation envelope as a JSON string (sorted keys,
+--- byte-identical to a written-then-read empty shared file).  Single source of
+--- the envelope shape + schema_version so callers never hardcode it.
+function StateStore.empty_envelope_json()
+    return JsonStore.encode(StateStore._build_empty_state())
+end
+
+
 function StateStore._validate_and_repair(loaded_state)
     -- schema_version
     loaded_state.schema_version = loaded_state.schema_version or CURRENT_SCHEMA_VERSION

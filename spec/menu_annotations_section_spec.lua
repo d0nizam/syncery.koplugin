@@ -78,16 +78,20 @@ end
 do
     local plugin = menu_support.make_fake_plugin{}
     local rows = A.menuWhatToSync(plugin)
-    h.assert_equal(#rows, 9,
-        "menuWhatToSync: 9 rows (position + 2 dividers + 4 both-ways + 2 local)")
+    h.assert_equal(#rows, 10,
+        "menuWhatToSync: 10 rows (position + 2 dividers + 5 both-ways + 2 local)")
     h.assert_equal(rows[1].text, "Reading position",
         "row 1 is the Reading position cluster")
     h.assert_true(rows[1].sub_item_table_func ~= nil,
         "Reading position is a submenu")
     h.assert_true(rows[2].text:find("synced both ways") ~= nil,
         "row 2 is the 'synced both ways' section divider")
-    h.assert_true(rows[7].text:find("on this device") ~= nil,
-        "row 7 is the 'on this device' section divider")
+    h.assert_equal(rows[7].text, "Statistics & Vocabulary",
+        "row 7 is the Statistics & Vocabulary category (both-ways group)")
+    h.assert_true(rows[7].sub_item_table_func ~= nil,
+        "Statistics & Vocabulary is a submenu")
+    h.assert_true(rows[8].text:find("on this device") ~= nil,
+        "row 8 is the 'on this device' section divider")
 end
 
 
@@ -123,28 +127,28 @@ do
 end
 
 
--- File types row: now in the "on this device" group (row 9).
+-- File types row: now in the "on this device" group (row 10).
 do
     local plugin = menu_support.make_fake_plugin{ sync_extensions = "*" }
-    local types_label = A.menuWhatToSync(plugin)[9].text_func()
+    local types_label = A.menuWhatToSync(plugin)[10].text_func()
     h.assert_true(types_label:find("all formats") ~= nil,
         "wildcard → 'all formats' label")
 end
 do
     local plugin = menu_support.make_fake_plugin{ sync_extensions = "pdf, epub" }
-    local types_label = A.menuWhatToSync(plugin)[9].text_func()
+    local types_label = A.menuWhatToSync(plugin)[10].text_func()
     h.assert_true(types_label:find("pdf, epub") ~= nil,
         "specific extensions → inlined in label")
 end
 
 
--- Adapt highlight style now lives in the "on this device" group (row 8).
+-- Adapt highlight style now lives in the "on this device" group (row 9).
 do
     local plugin = menu_support.make_fake_plugin{ adapt_highlight_style = false }
     local rows = A.menuWhatToSync(plugin)
-    h.assert_equal(rows[8].text, "Adapt highlight style to this device",
-        "row 8 is the adapt-highlight toggle")
-    rows[8].callback(nil)
+    h.assert_equal(rows[9].text, "Adapt highlight style to this device",
+        "row 9 is the adapt-highlight toggle")
+    rows[9].callback(nil)
     h.assert_equal(plugin.adapt_highlight_style, true,
         "adapt toggle flips adapt_highlight_style")
 end

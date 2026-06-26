@@ -647,3 +647,45 @@ do
 
     os.execute("rm -rf '" .. base .. "'")
 end
+
+
+-- ----------------------------------------------------------------------------
+-- on_server_responded: the merge callback running (the provider DOWNLOADED the
+-- remote object == the server is reachable) fires the hook; a bare dispatch
+-- does NOT.  This is how the cloud-reachability verdict learns the server is
+-- up without a synchronous probe; see CloudReachability.note_success.
+-- ----------------------------------------------------------------------------
+do
+    local responded = 0
+    local fp = make_fake_provider()
+    -- Override sync to INVOKE the (wrapped) merge callback, simulating a
+    -- download+merge.  The real merge is pcall-isolated here so the test does
+    -- not depend on any on-disk canonical file.
+    fp.provider.sync = function(_server, _path, merge_cb, callback)
+        pcall(merge_cb, "/tmp/ctspec_lf", "/tmp/ctspec_cf", "/tmp/ctspec_if")
+        callback(true, nil)
+    end
+    local t = Transport.new({
+        settings_reader     = settings_for(valid_settings()),
+        select_provider     = fp.selector,
+        on_server_responded = function() responded = responded + 1 end,
+    })
+    t.push("/x", { payload = { kind = "progress", book_id = "a", content = "{}" } },
+        function() end)
+    h.assert_equal(responded, 1,
+        "on_server_responded fires exactly once when the merge callback runs")
+
+    -- It must NOT fire on dispatch alone (the default fake sync calls callback
+    -- but never merge_cb): a clean dispatch is not proof of reachability.
+    local responded2 = 0
+    local fp2 = make_fake_provider()
+    local t2 = Transport.new({
+        settings_reader     = settings_for(valid_settings()),
+        select_provider     = fp2.selector,
+        on_server_responded = function() responded2 = responded2 + 1 end,
+    })
+    t2.push("/x", { payload = { kind = "progress", book_id = "a", content = "{}" } },
+        function() end)
+    h.assert_equal(responded2, 0,
+        "on_server_responded does NOT fire on dispatch alone (merge_cb never ran)")
+end

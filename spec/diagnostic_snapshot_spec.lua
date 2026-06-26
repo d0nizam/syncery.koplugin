@@ -79,6 +79,7 @@ local function sample()
               trigger = "save" },
             { outcome = "merged",  book_id = "eeee5555", trigger = "close",
               annotations_pulled = 3, annotations_pushed = 1,
+              metadata_changed = 2,
               annotations_before = 8, annotations_after = 12 },
         },
         activity = {
@@ -88,6 +89,7 @@ local function sample()
         integrity = {
             store_exists = true, store_decode_ok = true,
             conflict_count = 0, tombstone_count = 3,
+            metadata_tombstone_count = 2,
             stignore_applicable = true, stignore_present = true,
         },
     }
@@ -215,6 +217,7 @@ do
         "the latest line carries the kind tag (defaulted: the fixture entry has no kind)")
     h.assert_true(has(r.full, "via close"), "the latest entry's trigger is surfaced")
     h.assert_true(has(r.full, "pulled 3 / pushed 1"), "the latest entry's pull/push direction is shown")
+    h.assert_true(has(r.full, "2 metadata"), "the latest entry's metadata-change count is shown")
     h.assert_true(has(r.full, "8->12 alive"), "the latest entry's alive before->after is shown")
     h.assert_true(has(r.full, "save_shared_failed"),
         "a FAILED entry surfaces its error reason (failed carries error, not skipped_reason)")
@@ -393,6 +396,8 @@ do
     h.assert_true(matches(r.full, "Store%s+ok"), "a valid store reads ok")
     h.assert_true(matches(r.full, "Conflicts%s+0 copies"), "conflict count shown")
     h.assert_true(matches(r.full, "Tombstones%s+3 recorded"), "tombstone count shown")
+    h.assert_true(matches(r.full, "Metadata tombstones:%s+2 recorded"),
+        "metadata tombstone count shown")
     h.assert_true(matches(r.full, "%.stignore%s+present"), "stignore present shown")
 
     -- a corrupt store reads UNREADABLE in the section (the warning is on Faults)
@@ -411,6 +416,8 @@ do
         "stignore n/a when not applicable")
     h.assert_false(has(r2.full, "Tombstones"),
         "tombstone line hidden when the count is unknown")
+    h.assert_false(has(r2.full, "Metadata tombstones"),
+        "metadata tombstone line hidden when the count is unknown")
 end
 
 -- ---- count_tombstones: deletions recorded in a decoded store, defensively ----
@@ -426,6 +433,21 @@ do
     h.assert_equal(DS.count_tombstones({ annotations = {} }), 0, "empty store -> 0")
     h.assert_equal(DS.count_tombstones({}), 0, "no annotations key -> 0")
     h.assert_equal(DS.count_tombstones(nil), 0, "nil store -> 0 (defensive)")
+end
+
+-- ---- count_metadata_tombstones: cleared metadata fields in a decoded store ----
+do
+    local store = { metadata = {
+        rating       = { deleted = true },          -- cleared
+        summary_note = { value = "x" },             -- present
+        collections  = { deleted = true },          -- cleared
+        custom       = { value = { title = "T" } }, -- present
+    } }
+    h.assert_equal(DS.count_metadata_tombstones(store), 2,
+        "counts only the deleted == true metadata fields")
+    h.assert_equal(DS.count_metadata_tombstones({ metadata = {} }), 0, "empty metadata -> 0")
+    h.assert_equal(DS.count_metadata_tombstones({}), 0, "no metadata key -> 0")
+    h.assert_equal(DS.count_metadata_tombstones(nil), 0, "nil store -> 0 (defensive)")
 end
 
 -- ---- defensive: build(nil) still produces a valid report ----

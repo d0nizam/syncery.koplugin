@@ -194,6 +194,19 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
             -- Step 3: opportunistic auxiliary push.  Gated internally, so
             -- calling unconditionally is safe when disabled.
             if plugin.use_cloud then
+                -- This is a TERMINAL push: Step 5 below shuts the transport
+                -- down on the destroying path, so there is no future tick for
+                -- the async reachability probe to resolve on.  Without help,
+                -- _doCloudUpload's gate would consult the cold/cached-but-stale
+                -- verdict, DEFER via the cloud backoff, and the deferred retry
+                -- would fire after shutdown -> "push_book after shutdown" ->
+                -- the close-time upload is dropped.  Warm the verdict
+                -- synchronously first (one bounded connect to the cached IP, no
+                -- DNS) so the gate gets a firm answer and the push proceeds (or
+                -- is correctly skipped) INLINE, before the shutdown.
+                if plugin._cloud_reachability then
+                    pcall(function() plugin._cloud_reachability:warm_blocking() end)
+                end
                 plugin:_doCloudUpload(state)
             end
 

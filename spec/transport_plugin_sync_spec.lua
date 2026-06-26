@@ -45,6 +45,9 @@ local function make_plugin(opts)
     local p = {
         use_cloud    = opts.use_cloud    ~= false,
         sync_progress = opts.sync_progress ~= false,
+        sync_annotations     = opts.sync_annotations,
+        sync_metadata        = opts.sync_metadata,
+        sync_render_settings = opts.sync_render_settings,
         destroyed    = opts.destroyed or false,
         is_saving    = opts.is_saving or false,
         sync_state   = opts.sync_state or "idle",
@@ -199,6 +202,25 @@ do
     PluginSync.do_cloud_upload(p, { file = "/no/such/book.epub" })
     h.assert_nil(called(p, "push_cloud_files"),
         "cloud upload: no files on disk → empty entries → no push")
+end
+
+-- Fresh-device PULL bootstrap: no local annotations file but the annotations
+-- master is ON → stage an in-memory empty envelope so the bidirectional sync
+-- RUNS and DOWNLOADS a peer's annotations (then on_reconciled fires the Reload
+-- toast).  Without it a never-annotated device never pulls (cloud-only;
+-- Syncthing replicates the shared file at FS level).  No file is written.
+do
+    local p = make_plugin{ sync_annotations = true }
+    PluginSync.do_cloud_upload(p, { file = "/no/such/book.epub" })
+    local c = called(p, "push_cloud_files")
+    h.assert_true(c ~= nil,
+        "cloud upload: no ann file + annotations ON → push happens to pull remote")
+    local has_ann = false
+    for _, e in ipairs((c and c.entries) or {}) do
+        if e.kind == "annotations" then has_ann = true end
+    end
+    h.assert_true(has_ann,
+        "cloud upload: an in-memory empty annotations envelope is staged so the pull runs")
 end
 
 

@@ -1,10 +1,24 @@
 # Changelog
 
-All notable user-facing changes to Syncery are recorded here. The format
-follows [Keep a Changelog](https://keepachangelog.com/); the project version
-lives in `_meta.lua`.
+## [v1.1.0] — 2026-06-26
 
-## [v1.0.0] — 2026-06-24
+### Added
+- Reading Statistics and Vocabulary Builder now sync across your devices.
+  Syncery syncs them periodically while you read (with a configurable interval
+  and a master on/off switch), and can optionally point both KOReader plugins
+  at Syncery's own cloud server so you set the cloud up once instead of in
+  three separate places. When sync can't run because the cloud isn't
+  configured, Syncery now tells you instead of failing silently.
+
+
+### Fixed
+- The first-run setup wizard is now fully usable on non-touch devices.
+  (Reported as issue #1.)
+- Clearing a book's star rating, summary note, collections, or custom
+  title/author now syncs the removal to your other devices, instead of the old
+  value reappearing from a device that still had it.
+
+## [v1.0.0] — 2026-06-19
 
 First public release. Syncery keeps your whole reading state in sync across
 every device you read on — no account, and no central server unless you choose

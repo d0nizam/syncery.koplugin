@@ -339,6 +339,8 @@ do
         ["_debounce_scan_action"]    = true,
         ["_firstrun_action"]         = true,
         ["_gc_action"]               = true,
+        ["_open_cloud_pull"]         = true,
+        ["_post_pull_check"]         = true,
         ["_resume_recheck_action"]   = true,
         ["_sync_annotations_action"] = true,
         ["_sync_bookmarks_action"]   = true,

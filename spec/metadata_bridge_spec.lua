@@ -737,3 +737,247 @@ do
     h.assert_deep_equal(m.collections.value, { "fav", "scifi" },
         "3-way: reordered set equals ancestor (no false conflict from key order)")
 end
+
+
+-- ============================================================================
+-- METADATA CLEAR TOMBSTONE (Batch 1: S1 sentinel + S3 D2 + S2 clear-detection)
+-- ============================================================================
+-- A cleared non-status field is materialized as a tombstone ({deleted=true})
+-- and must propagate in BOTH directions; the fingerprint sentinel keeps it
+-- distinct from "absent" so _three_way_field doesn't treat a clear as no-opinion.
+
+local function tomb(date, dev)
+    return { deleted = true, datetime_updated = date or "", device_id = dev }
+end
+
+-- S1: local clear propagates (tombstone wins over the value it replaced).
+do
+    local m = MetadataBridge.three_way(
+        { rating = tomb("", "A") },     -- local cleared
+        { rating = mk(4, "", "B") },    -- remote still has the value
+        { rating = mk(4, "", "X") })    -- ancestor had the value
+    h.assert_true(m.rating ~= nil and m.rating.deleted == true,
+        "clear-tombstone: local clear propagates (tombstone wins)")
+end
+
+-- S1: remote clear adopted (the direction the nil-fingerprint bug missed).
+do
+    local m = MetadataBridge.three_way(
+        { rating = mk(4, "", "A") },    -- local still has the value
+        { rating = tomb("", "B") },     -- remote cleared
+        { rating = mk(4, "", "X") })    -- ancestor had the value
+    h.assert_true(m.rating ~= nil and m.rating.deleted == true,
+        "clear-tombstone: remote clear adopted (tombstone wins)")
+end
+
+-- Both sides cleared -> a tombstone survives.
+do
+    local m = MetadataBridge.three_way(
+        { rating = tomb("", "A") },
+        { rating = tomb("", "B") },
+        { rating = mk(4, "", "X") })
+    h.assert_true(m.rating ~= nil and m.rating.deleted == true,
+        "clear-tombstone: both clear -> tombstone")
+end
+
+-- Re-add after a clear: a new value beats the old tombstone ancestor.
+do
+    local m = MetadataBridge.three_way(
+        { rating = tomb("", "A") },     -- local still cleared
+        { rating = mk(7, "", "B") },    -- remote re-added a value
+        { rating = tomb("", "X") })     -- ancestor was the clear
+    h.assert_equal(m.rating and m.rating.value, 7,
+        "clear-tombstone: remote re-add after clear -> value wins")
+end
+
+-- S3 (D2): a clear vs a concurrent DIFFERENT-value edit, same datetime "" ->
+-- the clear wins on the tie (mirrors the annotation delete-on-tie pick).
+do
+    local m = MetadataBridge.three_way(
+        { rating = tomb("", "A") },     -- local cleared
+        { rating = mk(9, "", "B") },    -- remote set a different value
+        { rating = mk(5, "", "X") })    -- ancestor was yet another value
+    h.assert_true(m.rating ~= nil and m.rating.deleted == true,
+        "clear-tombstone D2: clear beats a concurrent edit on a tie")
+end
+
+-- S3 (D2): the tombstone-on-tie pick is symmetric (same winner either order).
+do
+    local w1 = MetadataBridge._metadata_tiebreak("rating", tomb("", "A"), mk(9, "", "B"))
+    local w2 = MetadataBridge._metadata_tiebreak("rating", mk(9, "", "B"), tomb("", "A"))
+    h.assert_true(w1.deleted == true and w2.deleted == true,
+        "clear-tombstone D2: tombstone-on-tie pick is symmetric")
+end
+
+-- A value never collides with the tombstone sentinel.
+do
+    local m = MetadataBridge.three_way(
+        { rating = mk("hello", "", "A") },
+        { rating = mk("hello", "", "B") },
+        { rating = mk("x", "", "X") })
+    h.assert_equal(m.rating and m.rating.value, "hello",
+        "clear-tombstone: a value never collides with the sentinel")
+end
+
+-- S2: _detect_field_clear materializes a tombstone for a toggled-ON field that
+-- was in the ancestor and is now absent.
+do
+    local md = {}
+    MetadataBridge._detect_field_clear(md, { rating = mk(4, "", "X") },
+        "rating", true, "A", "Acer")
+    h.assert_true(md.rating ~= nil and md.rating.deleted == true,
+        "clear-detection: cleared toggled-on field -> tombstone")
+    h.assert_equal(md.rating.datetime_updated, "",
+        "clear-detection: fresh tombstone carries empty datetime")
+end
+
+-- S2 INVARIANT: a toggled-OFF field is absent = no-opinion, NEVER a tombstone
+-- (this is what keeps per-field filtering safe).
+do
+    local md = {}
+    MetadataBridge._detect_field_clear(md, { rating = mk(4, "", "X") },
+        "rating", false, "A", "Acer")
+    h.assert_nil(md.rating,
+        "clear-detection INVARIANT: toggled-off field -> no tombstone")
+end
+
+-- S2: an existing ancestor tombstone is carried forward without a re-stamp, as
+-- a COPY (not the ancestor table).
+do
+    local md = {}
+    local existing = { deleted = true, datetime_updated = "2026-01-01",
+                       device_id = "B", device_label = "Kobo" }
+    MetadataBridge._detect_field_clear(md, { rating = existing },
+        "rating", true, "A", "Acer")
+    h.assert_true(md.rating ~= nil and md.rating.deleted == true,
+        "clear-detection: carry forward an existing tombstone")
+    h.assert_equal(md.rating.datetime_updated, "2026-01-01",
+        "clear-detection: carry forward does NOT re-stamp")
+    h.assert_true(md.rating ~= existing,
+        "clear-detection: carry forward COPIES (not the ancestor table)")
+end
+
+-- S2: a field the ancestor never carried is not a clear.
+do
+    local md = {}
+    MetadataBridge._detect_field_clear(md, {}, "rating", true, "A", "Acer")
+    h.assert_nil(md.rating,
+        "clear-detection: never-synced field -> no tombstone")
+end
+
+-- S2: no ancestor at all (first sync / backfill) -> never fabricate a clear.
+do
+    local md = {}
+    MetadataBridge._detect_field_clear(md, nil, "rating", true, "A", "Acer")
+    h.assert_nil(md.rating,
+        "clear-detection: nil ancestor (backfill) -> no tombstone")
+end
+
+
+-- ============================================================================
+-- METADATA CLEAR TOMBSTONE (Batch 2: S4 apply clear paths + F6/F7/F5)
+-- ============================================================================
+
+-- S4a: _apply_rating_clear -> summary.rating = nil + cache 0 (KOReader un-rate).
+do
+    local recorded = {}
+    package.loaded["ui/widget/booklist"] = {
+        setBookInfoCacheProperty = function(file, prop, value)
+            table.insert(recorded, { prop = prop, value = value })
+        end,
+    }
+    local ui = h.make_fake_ui({ settings = { summary = { rating = 4, status = "reading" } } })
+    local changed = MetadataBridge._apply_rating_clear(ui, "/books/x.epub")
+    h.assert_true(changed, "rating clear: returns changed")
+    h.assert_nil(ui._settings.summary.rating, "rating clear: summary.rating set to nil")
+    h.assert_equal(ui._settings.summary.status, "reading", "rating clear: status untouched")
+    h.assert_equal(recorded[#recorded].prop, "rating", "rating clear: cache targets rating")
+    h.assert_equal(recorded[#recorded].value, 0, "rating clear: cache set to 0 (KOReader un-rate), not nil")
+
+    -- already clear -> no-op (no cache touch)
+    local n = #recorded
+    local ui2 = h.make_fake_ui({ settings = { summary = { status = "reading" } } })
+    h.assert_false(MetadataBridge._apply_rating_clear(ui2, "/books/x.epub"),
+        "rating clear: already-clear -> no-op")
+    h.assert_equal(#recorded, n, "rating clear: no-op does not touch the cache")
+end
+
+-- S4d: a rating TOMBSTONE applied via apply_from_remote clears the local rating
+-- (value-gated; reports applied.rating).
+do
+    package.loaded["ui/widget/booklist"] = { setBookInfoCacheProperty = function() end }
+    local ui = h.make_fake_ui({ settings = { summary = { rating = 4 } } })
+    local toggles = { master = true, rating = true, status = false,
+                      collections = false, summary = false, custom = false, handmade = false }
+    local changed, applied = MetadataBridge.apply_from_remote(
+        ui, "/books/x.epub", { rating = { deleted = true, datetime_updated = "" } }, toggles)
+    h.assert_true(changed, "apply tombstone: reports a change")
+    h.assert_true(applied.rating == true, "apply tombstone: applied.rating recorded (clear counts)")
+    h.assert_nil(ui._settings.summary.rating, "apply tombstone: local rating cleared")
+
+    -- a device already clear -> the tombstone is a no-op (value-gate)
+    local ui_clear = h.make_fake_ui({ settings = { summary = {} } })
+    local _, applied2 = MetadataBridge.apply_from_remote(
+        ui_clear, "/books/x.epub", { rating = { deleted = true } }, toggles)
+    h.assert_nil(applied2.rating, "apply tombstone: already-clear device no-ops")
+end
+
+-- F6: a note clear writes nil (KOReader stores a cleared note as nil), not "".
+do
+    local ui = h.make_fake_ui({ settings = { summary = { note = "great book", rating = 4 } } })
+    local changed = MetadataBridge._apply_summary_note(ui, "/books/x.epub", nil)
+    h.assert_true(changed, "note clear: returns changed")
+    h.assert_nil(ui._settings.summary.note, "note clear F6: summary.note set to nil (NOT empty string)")
+    h.assert_equal(ui._settings.summary.rating, 4, "note clear: rating untouched")
+end
+
+-- S4b + F7 + F5: _apply_custom_clear nils the custom props, DELETES the sidecar
+-- when empty (not flush), restores live doc_props from the backup, evicts cache.
+do
+    local removed = {}
+    package.loaded["util"] = { splitFilePathName = function(p) return (p:gsub("/[^/]*$", "/")) end }
+    package.loaded["ui/event"] = { new = function(_s, n, f) return { name = n } end }
+    package.loaded["ui/uimanager"] = { broadcastEvent = function(_s, e) removed.broadcast = e and e.name end }
+    local cprops = { title = "Custom T", authors = "Custom A", series_index = 2 }
+    package.loaded["docsettings"] = {
+        removeSidecarDir = function(dir) removed.dir = dir end,
+        openSettingsFile = function(path)
+            return {
+                sidecar_file = path,
+                readSetting = function(_s, k)
+                    if k == "custom_props" then return cprops end
+                    if k == "doc_props" then return { title = "Orig Title", authors = "Orig Author" } end
+                end,
+                saveSetting = function(_s, k, v) if k == "custom_props" then cprops = v end end,
+                flushCustomMetadata = function() removed.flushed = true; return true end,
+            }
+        end,
+    }
+    local cache_reset = false
+    local ui = h.make_fake_ui({ settings = {} })
+    ui.doc_props = { title = "Custom T", authors = "Custom A" }
+    ui.doc_settings.getCustomMetadataFile = function(_s, reset)
+        if reset then cache_reset = true; return end
+        return "/books/x.sdr/custom_metadata.lua"
+    end
+    local real_os_remove = os.remove
+    os.remove = function(p) removed.file = p; return true end
+
+    local persisted = MetadataBridge._apply_custom_clear(ui, "/books/x.epub")
+    os.remove = real_os_remove  -- restore immediately
+
+    h.assert_true(persisted, "custom clear: returns persisted")
+    h.assert_nil(cprops.title, "custom clear: title niled")
+    h.assert_equal(removed.file, "/books/x.sdr/custom_metadata.lua",
+        "custom clear F7: sidecar FILE removed (not flushed empty)")
+    h.assert_true(removed.flushed == nil, "custom clear F7: did NOT flush an empty file")
+    h.assert_true(cache_reset, "custom clear F7: getCustomMetadataFile(true) cache reset")
+    h.assert_equal(ui.doc_props.title, "Orig Title", "custom clear F5: doc_props.title restored to original")
+    h.assert_nil(ui.doc_props.series_index, "custom clear F5: cleared key with no original -> nil")
+    h.assert_equal(removed.broadcast, "InvalidateMetadataCache", "custom clear: FileManager cache evicted")
+
+    package.loaded["docsettings"] = nil
+    package.loaded["util"] = nil
+    package.loaded["ui/event"] = nil
+    package.loaded["ui/uimanager"] = nil
+end
