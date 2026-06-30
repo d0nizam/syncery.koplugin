@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.1.2] — 2026-06-30
+
+### Bugfix
+- Annotation browser: focus indicator (blue border) no longer appears on touch-enabled devices. Regression in v1.1.1 - the D-pad focus navigation inadvertently drew a focus border on the first list item on all devices, not just non-touch ones. Now gated on hasDPad() and not isTouchDevice(), matching KOReader's FocusManager convention.
+
 ## [v1.1.1] — 2026-06-30
 
 ### Added
