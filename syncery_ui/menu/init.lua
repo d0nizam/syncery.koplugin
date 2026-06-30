@@ -245,10 +245,7 @@ function Menu.buildTopMenu(plugin)
             .. "Position is shown as a percentage, which is comparable across "
             .. "devices; page numbers are not (they vary by font and screen). "
             .. "Tap a book to see every device's position.")),
-        callback            = function()
-            local ProgressBrowser = require("syncery_ui/progress_browser/init")
-            ProgressBrowser.show(plugin)
-        end,
+        callback            = function() plugin:onSynceryProgressBrowser() end,
     })
 
     -- 3b. Annotation Browser — browse synced highlights/notes across all books
@@ -270,17 +267,7 @@ function Menu.buildTopMenu(plugin)
             .. "devices).\n\n"
             .. "So if you tap an annotation, the book opens, and nothing is "
             .. "there — that is the reason.")),
-        callback            = function()
-            -- The viewer is embedded (its init is a no-op), so a normal
-            -- construction is safe -- no standalone plugin registration fires.
-            local Viewer = require("syncery_ui/annotation_viewer/viewer_lifted")
-            local v = Viewer:new{ ui = plugin.ui }
-            if plugin.ui and plugin.ui.document then
-                v:showCurrentBookNotes()
-            else
-                v:showAllNotes()
-            end
-        end,
+        callback            = function() plugin:onSynceryAnnotationBrowser() end,
     })
 
     -- 4. This book — per-book actions.  Book-dependent: the whole entry is

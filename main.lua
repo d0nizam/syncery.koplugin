@@ -3029,6 +3029,21 @@ function Syncery:onSynceryShowStatus()   self:showSyncStatus(false) end
 -- other device, so the jump (not only its undo) can be bound to a gesture.
 function Syncery:onSynceryJump()         self:_jumpToLatestDevice() end
 
+-- The two browsers are otherwise menu-only; expose them as events so they can
+-- be bound to a gesture / hardware key (the menu items below call these too).
+function Syncery:onSynceryProgressBrowser()
+    require("syncery_ui/progress_browser/init").show(self)
+end
+function Syncery:onSynceryAnnotationBrowser()
+    local Viewer = require("syncery_ui/annotation_viewer/viewer_lifted")
+    local v = Viewer:new{ ui = self.ui }
+    if self.ui and self.ui.document then
+        v:showCurrentBookNotes()
+    else
+        v:showAllNotes()
+    end
+end
+
 -- ============================================================================
 -- UI Delegates
 -- ============================================================================
@@ -3847,6 +3862,16 @@ function Syncery:onDispatcherRegisterActions()
     Dispatcher:registerAction("syncery_jump", {
         category = "none", event = "SynceryJump",
         title = _("Syncery: jump to another device"), reader = true
+    })
+    -- The two cross-device browsers are otherwise menu-only; expose them so they
+    -- can be bound to a gesture / hardware key (useful on non-touch).
+    Dispatcher:registerAction("syncery_progress_browser", {
+        category = "none", event = "SynceryProgressBrowser",
+        title = _("Syncery: progress browser"), reader = true
+    })
+    Dispatcher:registerAction("syncery_annotation_browser", {
+        category = "none", event = "SynceryAnnotationBrowser",
+        title = _("Syncery: annotation browser"), reader = true, separator = true
     })
 end
 
