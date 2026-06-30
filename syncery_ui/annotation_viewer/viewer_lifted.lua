@@ -490,6 +490,9 @@ function NoteItemWidget:init()
         if info_fields["chapter"] and self.note.chapter and self.note.chapter ~= "" then
             table.insert(info_parts, self.note.chapter)
         end
+        if info_fields["device"] and self.note.device_label and self.note.device_label ~= "" then
+            table.insert(info_parts, self.note.device_label)
+        end
     end
     local info_text = table.concat(info_parts, " | ")
 
@@ -667,10 +670,29 @@ function NoteItemWidget:init()
 
     
 
-    self.dimen.h = note_content:getSize().h
-    self[1] = HorizontalGroup:new{
+    local focus_border = 3
+    local inner_h = note_content:getSize().h
+    local inner = HorizontalGroup:new{
         HorizontalSpan:new{ width = h_margin }, note_content, HorizontalSpan:new{ width = h_margin },
     }
+    if self.is_focused then
+        self.dimen.h = inner_h + focus_border * 2
+        self[1] = FrameContainer:new{
+            bordersize = focus_border,
+            padding = 0,
+            margin = 0,
+            border_color = BlitBuffer.COLOR_BLUE,
+            inner,
+        }
+    else
+        self.dimen.h = inner_h + focus_border * 2
+        self[1] = FrameContainer:new{
+            bordersize = 0,
+            padding = focus_border,
+            margin = 0,
+            inner,
+        }
+    end
 
 end
 function NoteItemWidget:formatDate(datetime)
@@ -687,6 +709,7 @@ local NotesListWidget = InputContainer:extend{
     width = nil, height = nil, notes_list = nil, filtered_notes = nil,
     viewer = nil, current_page = 1, pages = nil, active_filter = nil,
     single_book = false,
+    selected_item_idx = 1,
 }
 function NotesListWidget:init()
     self.width = Screen:getWidth()
@@ -730,10 +753,15 @@ function NotesListWidget:init()
     self:applyFilter()
     self:calculatePages()
     if Device:hasKeys() then
-        logger.info("[AnnotationsViewer]Available Input.group keys:", Input.group)
         self.key_events.GotoPrevPage = { { Input.group.PgBack } }
         self.key_events.GotoNextPage = { { Input.group.PgFwd } }
-        self.key_events.Close = { { Input.group.Back } }  
+        self.key_events.Close = { { Input.group.Back } }
+        if Device:hasDPad() then
+            self.key_events.MoveFocusUp = { { "Up" } }
+            self.key_events.MoveFocusDown = { { "Down" } }
+            self.key_events.SelectFocused = { { "Press" } }
+            self.key_events.OpenMenu = { { "Menu" } }
+        end
     end
     local swipe_setting = getSwipeSetting()
     if swipe_setting ~= "disabled" and not G_reader_settings:isTrue("page_turns_disable_swipe") then
@@ -1411,7 +1439,7 @@ end
             local skip_info = do_hide_dup_info
                 and not (always_show_first and is_first_on_page)
                 and (getNoteInfoKey(note, dedup_fields) == dedup_prev_info_key)
-            local note_widget = NoteItemWidget:new{ width = note_width, note = note, show_parent = self, skip_title = skip_title, skip_info = skip_info }
+            local note_widget = NoteItemWidget:new{ width = note_width, note = note, show_parent = self, skip_title = skip_title, skip_info = skip_info, is_focused = (i == self.selected_item_idx) }
             table.insert(notes_group, note_widget)
             if i == #page_indices then last_note_widget = note_widget end
             dedup_prev_title = note.book_title
@@ -2243,6 +2271,7 @@ function NotesListWidget:refresh()
     self:applyFilter()
     self:calculatePages()
     self.current_page = math.max(1, math.min(prev_page, self.total_pages or 1))
+    self.selected_item_idx = 1
     self:updatePage()
 end
 function NotesListWidget:onGotoNextPage()
@@ -2251,6 +2280,7 @@ function NotesListWidget:onGotoNextPage()
     else
         self.current_page = 1
     end
+    self.selected_item_idx = 1
     self:updatePage()
     return true
 end
@@ -2260,6 +2290,7 @@ function NotesListWidget:onGotoPrevPage()
     else
         self.current_page = self.total_pages
     end
+    self.selected_item_idx = 1
     self:updatePage()
     return true
 end
@@ -2267,6 +2298,39 @@ function NotesListWidget:onSwipeWest()  return self:onGotoNextPage() end
 function NotesListWidget:onSwipeNorth() return self:onGotoNextPage() end
 function NotesListWidget:onSwipeEast()  return self:onGotoPrevPage() end
 function NotesListWidget:onSwipeSouth() return self:onGotoPrevPage() end
+function NotesListWidget:onMoveFocusUp()
+    local indices = self.pages[self.current_page] or {}
+    if #indices == 0 then return true end
+    self.selected_item_idx = self.selected_item_idx - 1
+    if self.selected_item_idx < 1 then
+        self.selected_item_idx = #indices
+    end
+    self:updatePage()
+    return true
+end
+function NotesListWidget:onMoveFocusDown()
+    local indices = self.pages[self.current_page] or {}
+    if #indices == 0 then return true end
+    self.selected_item_idx = self.selected_item_idx + 1
+    if self.selected_item_idx > #indices then
+        self.selected_item_idx = 1
+    end
+    self:updatePage()
+    return true
+end
+function NotesListWidget:onSelectFocused()
+    local indices = self.pages[self.current_page] or {}
+    local idx = indices[self.selected_item_idx]
+    if idx then
+        local note = self.filtered_notes[idx]
+        if note then self:onNoteSelected(note) end
+    end
+    return true
+end
+function NotesListWidget:onOpenMenu()
+    self:showMainMenu()
+    return true
+end
 -- Forward an unhandled gesture to the KOReader gestures plugin by directly
 -- resolving the canonical gesture name and calling gestureAction(). This
 -- bypasses the event-stack limitation where UIManager only propagates events
