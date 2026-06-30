@@ -103,12 +103,22 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
     opts   = opts or {}
     logger = logger or { warn = function() end }
 
-    -- D: re-entrancy guard.  A blocking close-push goOnlineToRun can let the OS
-    -- emit Suspend/Resume (e.g. an Android focus switch while the Wi-Fi dialog is
-    -- up); those reach us AGAIN through the lifecycle handlers and would run a
-    -- second, non-destroying flush mid-close.  Skip any flush re-entered while a
-    -- close-push is in flight (KOSync nulls its handlers for the same reason).
-    if plugin._close_push_active then return end
+    -- D/361: re-entrancy guard.  A blocking wake (goOnlineToRun) can let the OS
+    -- emit Suspend/Resume or CloseDocument/Quit while it waits.  ANY re-entry
+    -- during an active wake must NOT run the flush again:
+    --   * non-destroying (Suspend/Resume) — a second flush mid-wait (KOSync nulls
+    --     its handlers for the same reason);
+    --   * destroying (CloseDocument/Quit) — Steps 1-4 would stage stale
+    --     _pending_anns from the pre-wake/offline merge, and the outer wake's
+    --     authoritative online flush won't refresh that stash (its opts.destroying
+    --     is false), so SaveSettings would deliver STALE annotations (codex 361).
+    -- A destroying re-entry still needs its terminal teardown, but deferred: mark
+    -- _pending_destroy so the wake OWNER drains shutdown + destroyed once its push
+    -- completes (Step 5 below).  Either way, return without re-flushing.
+    if plugin._wake_push_active then
+        if opts.destroying then plugin._pending_destroy = true end
+        return
+    end
 
     -- ------------------------------------------------------------------
     -- Steps 0-4 are a BEST-EFFORT flush, ALL isolated in one pcall so that
@@ -150,6 +160,14 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
         -- swallowed silently.
         -- Steps 1-4 as a thunk so the dispatch below can run them inline or after
         -- raising the network (close-push).
+        -- wake_proceeded: did the cloud wake ACTUALLY run (already online, or
+        -- goOnlineToRun raised the link and fired online_flush)?  Set in
+        -- online_flush.  Step 4 gates the INLINE suspend scan on this, not on the
+        -- bare toggle/config: if the wake was DECLINED (goOnlineToRun returned
+        -- false — network action prompt/ignore, or Wi-Fi couldn't raise), the
+        -- fallback run_flush runs offline, and an inline Syncthing scan would put
+        -- the REST POST/timeout on the sleep path though no wake happened (codex).
+        local wake_proceeded = false
         local steps = function()
             -- Step 1: persist progress JSON.  Cheap, always safe.  Pass the
             -- close/suspend trigger (mirroring the annotation sync below) so
@@ -238,13 +256,30 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
             -- the transport down synchronously right after, so a nextTick scan
             -- would fire post-shutdown (_shutdown=true) and be dropped.  Step 1's
             -- _writeSave is synchronous, so the bytes are already on disk here.
-            -- I: force=true on this terminal scan — an offline autosave attempt
-            -- may have left it in_backoff, and Step 5 cancels the pending retry,
-            -- so the policy must be bypassed or the close-time scan is lost.
-            -- Non-destroying (suspend/autosave): defer via nextTick (no shutdown
-            -- follows) and keep the normal debounce/backoff (force=false).
-            if opts.destroying then
-                trigger_scan(true)
+            -- I: force=true on the terminal (destroying) scan — an offline autosave
+            -- may have left it in_backoff, and Step 5 cancels the pending retry, so
+            -- the policy must be bypassed or the close-time scan is lost.
+            -- T: a suspend WAKE promises sync-before-sleep, but the device may
+            -- sleep right after the Suspend broadcast — so run the scan INLINE for
+            -- it too (it executes while online, inside goOnlineToRun, before we
+            -- return and the device sleeps), not deferred to a nextTick that fires
+            -- only on resume.  Suspend keeps normal backoff (force=false): no Step 5
+            -- shutdown follows it to cancel a pending retry.
+            -- BUT only when the cloud wake ACTUALLY proceeds (codex): gating the
+            -- inline scan on the bare `wake_wifi_on_suspend` toggle would move the
+            -- Syncthing REST POST into the sleep path even when Cloud is off /
+            -- unconfigured (a stuck hidden toggle) with no Wi-Fi raised — blocking
+            -- sleep on the Syncthing HTTP timeout.  Mirror the wake gate here.
+            -- Plain suspend/autosave (no wake): defer via nextTick as before.
+            -- The suspend inline scan is justified ONLY when the cloud wake
+            -- ACTUALLY proceeded (online_flush ran) — not merely when the toggle is
+            -- on and Cloud is configured.  A declined wake (goOnlineToRun false, or
+            -- a stuck toggle) reaches Step 4 via the fallback run_flush with
+            -- wake_proceeded=false, so the Syncthing scan stays deferred instead of
+            -- blocking sleep on its HTTP timeout (codex).
+            local suspend_wake = opts.suspend and wake_proceeded
+            if opts.destroying or suspend_wake then
+                trigger_scan(opts.destroying)
             elseif ui_manager and ui_manager.nextTick then
                 ui_manager:nextTick(function() trigger_scan(false) end)
             end
@@ -262,7 +297,7 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
             end
         end
 
-        -- E: when close-push RAISES the link, KOReader's NetworkConnected event
+        -- E: when wake-push RAISES the link, KOReader's NetworkConnected event
         -- is delayed and hasn't reset the reachability verdict yet.  A stale
         -- `unreachable` (set by an earlier NetworkDisconnected) with no cached IP
         -- would make Step 3's gate skip the cloud push.  Apply the same reset the
@@ -270,53 +305,95 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
         -- F: but ONLY when the link was actually raised (was offline).  If we were
         -- already online, goOnlineToRun runs this immediately and the verdict may
         -- be a FRESH note_failure (server genuinely down, not an offline blip) —
-        -- clearing it would fail open and block the close on a dead server.  So
+        -- clearing it would fail open and block the flush on a dead server.  So
         -- gate the reset on the pre-raise link state captured below.
-        local was_online      -- set in the close-push branch, before goOnlineToRun
+        local was_online      -- set in wake_push, before goOnlineToRun
         local function online_flush()
             if not was_online and plugin._cloud_reachability
                     and plugin._cloud_reachability.on_network_connected then
                 pcall(function() plugin._cloud_reachability:on_network_connected() end)
             end
+            wake_proceeded = true   -- the wake actually ran (Step 4 reads this)
             run_flush()
         end
 
-        -- KOSync close-push: on a terminal flush, raise Wi-Fi and flush once
-        -- online, when opted in and a transport is actually CONFIGURED (B: not
-        -- just a master toggle, or we'd wake the radio with nothing to push).
-        -- H: the readiness gate, the link probe, and goOnlineToRun all run
-        -- OUTSIDE the steps pcall, so wrap the whole attempt — a raising Settings
-        -- lookup or NetworkMgr probe must not skip the unconditional run_flush()
-        -- and Step 5 below.  The fallback run_flush() is a no-op if close_push
-        -- already flushed, else it runs the offline path (network steps self-skip).
-        local function close_push()
-            -- M: also require THIS book to be sync-eligible — both push paths
-            -- (cloud upload, Syncthing scan) self-skip on _isFileTypeSynced, so
-            -- for an excluded book (extension/per-book disable) waking Wi-Fi would
-            -- buy nothing.  Cheap (the push paths call it anyway).
-            if not (opts.destroying and plugin.wake_wifi_for_sync
-                    and plugin:_hasConfiguredTransportForClosePush()
+        -- Terminal wake-push (KOSync's BLOCKING goOnlineToRun pattern), SHARED by
+        -- close/quit (destroying) and sleep (suspend).  Both raise Wi-Fi and flush
+        -- BEFORE we let go, so the handover actually completes:
+        --   * close/quit — the document (and on quit the process) is going away;
+        --   * suspend — the real hardware sleep is deferred (~15s) and goOnlineToRun
+        --     does not tick UIManager, so blocking here holds the sleep off until
+        --     the push is done ("show the sleep screen, finish syncing, THEN sleep").
+        -- Each path has its OWN opt-in toggle; the gate also requires a configured
+        -- CLOUD transport (B) and a sync-eligible book (M) — else waking buys
+        -- nothing.  Cloud only: Syncthing is peer-to-peer + daemon-backed, so it
+        -- doesn't justify raising the radio at close/sleep.
+        -- H: the gate, the link probe, and goOnlineToRun all run OUTSIDE the steps
+        -- pcall, so wrap the whole attempt — a raising Settings lookup or NetworkMgr
+        -- probe must not skip the unconditional run_flush() / Step 5 below.
+        -- Trace the wake-push decision to crash.log (visible only with debug
+        -- logging on) so the real close/suspend behaviour is inspectable on-device.
+        local function dbg_log(msg)
+            if logger and logger.dbg then logger.dbg("Syncery: wake-push: " .. msg) end
+        end
+        local ev = opts.destroying and "close" or (opts.suspend and "suspend" or "other")
+        local wake = (opts.destroying and plugin.wake_wifi_for_sync)
+                  or (opts.suspend   and plugin.wake_wifi_on_suspend)
+        local function wake_push()
+            -- Q: re-entered by a destroying event during an active (suspend) wake
+            -- — don't nest a second goOnlineToRun; the unconditional run_flush +
+            -- Step 5 below handle this terminal teardown.
+            if plugin._wake_push_active then
+                dbg_log(ev .. " — re-entered during an active wake, not nesting")
+                return
+            end
+            if not wake then
+                dbg_log(ev .. " — toggle off, not waking")
+                return
+            end
+            if not (plugin:_hasConfiguredTransportForWakePush()
                     and plugin:_isFileTypeSynced(state.file)) then
+                dbg_log(ev .. " — no configured cloud transport or book not eligible, not waking")
                 return
             end
             was_online = plugin:_isNetworkOnline()
             if was_online then
                 -- J: already connected — skip goOnlineToRun (its online check can
-                -- run a WAN/DNS probe that stalls on captive/local-only Wi-Fi);
-                -- we already have the cheap link verdict, so flush directly.
+                -- WAN/DNS-probe and stall on captive/local-only Wi-Fi); flush now.
+                dbg_log(ev .. " — already online, flushing inline")
                 online_flush()
                 return
             end
             -- Offline: raise Wi-Fi, flush once online.  D: guard a Suspend/Resume
             -- emitted during the blocking wait so it can't run a duplicate flush.
-            plugin._close_push_active = true
-            plugin:_goOnlineToRun(online_flush)
-            plugin._close_push_active = nil
+            dbg_log(ev .. " — offline, raising Wi-Fi via goOnlineToRun")
+            local wifi_was_on = plugin:_isWifiOn()   -- radio state BEFORE we act
+            plugin._wake_push_active = true
+            local raised = plugin:_goOnlineToRun(online_flush)
+            plugin._wake_push_active = nil
+            -- #2 (KOSync suspend parity), gated tightly to avoid two failure modes
+            -- codex flagged:
+            --   * async provider (352): the default "Cloud storage+" push is
+            --     fire-and-forget (transfer deferred via UIManager:nextTick), so
+            --     lowering Wi-Fi right after dispatch would CUT the upload the
+            --     help promised.  Only lower when the push is SYNCHRONOUS
+            --     (syncservice), where the transfer already finished here.
+            --   * ownership (331): only lower Wi-Fi WE turned on — the radio was
+            --     off before AND goOnlineToRun actually raised it.  Never touch
+            --     Wi-Fi the user already had on, and don't lower when the wake
+            --     was declined (goOnlineToRun returned false).
+            -- Suspend only (close/quit: nothing sleeps).  Device gate is in the
+            -- plugin method.
+            if opts.suspend and raised and not wifi_was_on
+                    and plugin:_isCloudPushSynchronous() then
+                plugin:_lowerWifiAfterWakePush()
+            end
         end
-        local ok_cp, err_cp = pcall(close_push)
-        if not ok_cp then
-            plugin._close_push_active = nil   -- clear if a raise happened mid-wait
-            logger.warn("Syncery: close-push error: " .. tostring(err_cp))
+
+        local ok_wp, err_wp = pcall(wake_push)
+        if not ok_wp then
+            plugin._wake_push_active = nil   -- clear if a raise happened mid-wait
+            logger.warn("Syncery: wake-push error: " .. tostring(err_wp))
         end
         run_flush()
     end
@@ -326,12 +403,20 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
     -- queue to drain — the orchestrator's per-(transport, book) state
     -- replaces the old RetryQueue, and there's no companion-API
     -- subscription to tear down.
-    if opts.destroying then
+    -- R: if a destroying event re-entered DURING an active wake (its push hasn't
+    -- completed yet), do NOT shut the transport out from under that wake — the
+    -- outer wake's online_flush would then push into a dead orchestrator and the
+    -- last network push would be lost.  Defer: mark _pending_destroy and let the
+    -- wake's OWNER drain it here once its push is done (it reaches this Step 5 with
+    -- _wake_push_active already cleared).  Shutdown is idempotent, destroyed marks
+    -- the plugin closed only when we actually tear down.
+    if opts.destroying and plugin._wake_push_active then
+        plugin._pending_destroy = true          -- defer; the active wake still needs the transport
+    elseif opts.destroying or plugin._pending_destroy then
+        plugin._pending_destroy = nil
         plugin.destroyed = true
-        -- Shut down the transport stack: cancels pending
-        -- retries inside the orchestrator and prevents further
-        -- push_book calls from dispatching.  Idempotent — calling
-        -- shutdown twice is harmless (the orchestrator no-ops).
+        -- Shut down the transport stack: cancels pending retries inside the
+        -- orchestrator and prevents further push_book calls.  Idempotent.
         if plugin._transport then
             pcall(function() plugin._transport:shutdown() end)
         end

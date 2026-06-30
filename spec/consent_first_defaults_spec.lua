@@ -99,4 +99,6 @@ end
 do
     h.assert_equal(default_for("syncery_wake_wifi_for_sync"), "false",
         "consent: wake-Wi-Fi-on-close defaults OFF")
+    h.assert_equal(default_for("syncery_wake_wifi_on_suspend"), "false",
+        "consent: wake-Wi-Fi-on-sleep defaults OFF")
 end

@@ -130,7 +130,7 @@ end
 --- keep the transport stack and the plugin object alive across suspend rather
 --- than tearing down, so on_resume has something to work with.
 function Lifecycle:on_suspend()
-    self:teardown{}
+    self:teardown{ suspend = true }
 end
 
 

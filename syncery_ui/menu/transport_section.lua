@@ -487,7 +487,7 @@ end
 
 --- Cloud config submenu — destination / backend / clear / delay / test.
 function T.menuCloudConfig(plugin)
-    return {
+    local items = {
         {
             text_func = function()
                 local desc = Settings.describe_cloud_server()
@@ -538,8 +538,51 @@ function T.menuCloudConfig(plugin)
                 _("Tap to check the cloud destination is configured.")),
             callback       = H.safe("Test cloud",
                 function() T.testCloudConnection(plugin) end),
+            separator      = true,
         },
     }
+
+    -- codex 552: only surface the wake toggles once a cloud DESTINATION exists.
+    -- This submenu is reachable whenever Cloud is ON, but the wake gate no-ops
+    -- until a server is configured, so showing the toggles before then is a dead
+    -- switch.  Rebuilt on every open (sub_item_table_func), so setting the
+    -- destination reveals them at once.  Cloud only: the wake is justified by a
+    -- client-server push (an offline push's retry is cancelled by shutdown, so
+    -- the state may never leave the device); Syncthing is peer-to-peer +
+    -- daemon-backed and out of scope.  Both OFF by default, separate.
+    if Settings.is_cloud_configured() then
+        table.insert(items, H.makeBoolToggle(plugin,
+            "wake_wifi_for_sync", "syncery_wake_wifi_for_sync",
+            _("Wake Wi-Fi for cloud push on close"),
+            _("When you close a book (or quit KOReader) while offline, bring Wi-Fi "
+            .. "up and wait for it before pushing your latest position and "
+            .. "annotations to the cloud — so they actually reach the server "
+            .. "instead of being silently held back until some later session.\n\n"
+            .. "Respects your device's \"when network is needed\" setting: it only "
+            .. "turns Wi-Fi on if that is set to turn it on automatically (not "
+            .. "prompt or ignore).  Off by default.  Closing can pause for up to "
+            .. "~30 seconds worst-case while the connection comes up and the push "
+            .. "completes.")))
+
+        table.insert(items, H.makeBoolToggle(plugin,
+            "wake_wifi_on_suspend", "syncery_wake_wifi_on_suspend",
+            _("Wake Wi-Fi for cloud push on sleep"),
+            _("When the device goes to sleep while offline, bring Wi-Fi up and push "
+            .. "your latest position and annotations to the cloud before it actually "
+            .. "sleeps — so they reach the server instead of waiting for the next "
+            .. "time you open this book.\n\n"
+            .. "The sleep screen appears right away, but the device finishes the "
+            .. "handover behind it and only then really sleeps, so sleeping can take "
+            .. "up to ~30 seconds worst-case while the connection comes up and the "
+            .. "push completes.  If we raised Wi-Fi, it is turned back off again "
+            .. "afterwards.\n\n"
+            .. "Unlike closing a book, sleep happens automatically and often (every "
+            .. "idle timeout), so waking Wi-Fi each time costs battery — enable only "
+            .. "if reliable sync-on-sleep is worth that to you.  Respects your "
+            .. "device's \"when network is needed\" setting.  Off by default.")))
+    end
+
+    return items
 end
 
 
@@ -799,18 +842,9 @@ function T.build(plugin)
         separator           = true,
     })
 
-    -- Opt-in close-push toggle (applies to whichever transport is on).
-    table.insert(items, H.makeBoolToggle(plugin,
-        "wake_wifi_for_sync", "syncery_wake_wifi_for_sync",
-        _("Wake Wi-Fi to finish syncing on close"),
-        _("When you close a book (or quit KOReader) while offline, bring Wi-Fi "
-        .. "up and wait for it before pushing — so your latest position and "
-        .. "annotations actually reach your other devices instead of being "
-        .. "silently held back until some later session.\n\n"
-        .. "Respects your device's \"when network is needed\" setting: it only "
-        .. "turns Wi-Fi on if that is set to turn it on automatically (not "
-        .. "prompt or ignore).  Off by default.  Closing may pause briefly "
-        .. "while the connection comes up.")))
+    -- The opt-in wake-push toggles (close / sleep) now live UNDER the Cloud
+    -- section in menuCloudConfig, so they hide when Cloud isn't configured
+    -- (they are Cloud-only).  See T.menuCloudConfig.
 
     return items
 end

@@ -170,8 +170,36 @@ end
 do
     local t = Transport.new({
         settings_reader = settings_for(valid_settings()),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_true(t.is_available(), "all conditions met → available")
+end
+
+
+-- codex/fix-2: a syntactic destination but NO backend available (a build without
+-- "Cloud storage+" AND without the built-in syncservice) must report
+-- unavailable — the wake gate must not raise Wi-Fi for a push that can't dispatch
+-- through any backend.  server_is_syncable alone would say "webdav is fine".
+do
+    local t = Transport.new({
+        settings_reader = settings_for(valid_settings()),
+        select_provider = function()
+            return {
+                provider = {
+                    id                 = function() return "syncservice" end,
+                    is_available       = function() return false end,
+                    syncable_providers = function() return { webdav = true } end,
+                },
+                active_id = "syncservice",
+                fell_back = true,
+            }
+        end,
+    })
+    h.assert_false(t.is_available(),
+        "fix-2: no real cloud backend -> unavailable despite a saved server")
+    h.assert_false(t.status().available, "fix-2: status available=false")
+    -- (surfacing this as a distinct backend-unavailable state in the UI is
+    -- deferred to the cloud-state refactor PR.)
 end
 
 
@@ -437,7 +465,10 @@ end
 
 
 do
-    local t = Transport.new({ settings_reader = settings_for(valid_settings()) })
+    local t = Transport.new({
+        settings_reader = settings_for(valid_settings()),
+        select_provider = make_fake_provider().selector,
+    })
     h.assert_true(t.status().available, "available when toggled + server set")
     for _, cap in pairs(Interface.CAPABILITIES) do
         h.assert_false(t.supports(cap),
@@ -460,17 +491,22 @@ do
             syncery_use_cloud = true,
             syncery_cloud_server   = { type = "webdav", kind = "webdav" },
         }),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_true(t.is_available(), "webdav provider is syncable")
 end
 
 do
-    -- ftp is browsable but NOT syncable -> unavailable + clear status.
+    -- ftp is browsable but NOT syncable -> unavailable + clear status.  Inject an
+    -- AVAILABLE provider (syncable = dropbox/webdav, no ftp) so the reason is
+    -- "unsupported", not "no backend" (round4: backend-unavailable is checked
+    -- first now).
     local t = Transport.new({
         settings_reader = settings_for({
             syncery_use_cloud = true,
             syncery_cloud_server   = { type = "ftp", kind = "ftp" },
         }),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_false(t.is_available(), "ftp provider is NOT syncable -> unavailable")
     local s = t.status()
