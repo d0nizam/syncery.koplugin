@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.1.1] — 2026-06-30
+
+### Added
+- Non-touch accessibility
+  Action bars (jump/undo/reload): non-touch fallback - the bottom action bars now degrade to focusable ButtonDialogs on devices without touch (Device:hasKeys()),    with a single-slot FIFO queue for serialization. Touch & hybrid devices keep the non-blocking overlay bars. (PR #5)
+
+- Annotation browser: full 5-way D-pad navigation - Up/Down moves focus between notes, Press opens the selected note, Menu opens the main menu (Filter/Sort/Settings). Focused note is highlighted with a blue border. Page nav (Left/Right) and Close (Back) unchanged.
+
+- Progress & Annotation browsers are now bindable as Dispatcher actions (syncery_progress_browser, syncery_annotation_browser) - assign them to a gesture or   hardware key via the Gesture manager / Hotkeys plugin. (PR #5)
+
+### Fixed
+- Dispatcher registration fix
+Dispatcher actions are now also registered from init(), not only from the one-shot DispatcherRegisterActions broadcast. Fixes a bug where Syncery actions never appeared in the Gesture manager / Hotkeys pickers when Syncery loaded after the broadcast had already fired. (PR #4)
+
 ## [v1.1.0] — 2026-06-26
 
 ### Added
