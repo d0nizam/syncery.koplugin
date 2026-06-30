@@ -103,6 +103,13 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
     opts   = opts or {}
     logger = logger or { warn = function() end }
 
+    -- D: re-entrancy guard.  A blocking close-push goOnlineToRun can let the OS
+    -- emit Suspend/Resume (e.g. an Android focus switch while the Wi-Fi dialog is
+    -- up); those reach us AGAIN through the lifecycle handlers and would run a
+    -- second, non-destroying flush mid-close.  Skip any flush re-entered while a
+    -- close-push is in flight (KOSync nulls its handlers for the same reason).
+    if plugin._close_push_active then return end
+
     -- ------------------------------------------------------------------
     -- Steps 0-4 are a BEST-EFFORT flush, ALL isolated in one pcall so that
     -- an unhandled raise ANYWHERE in the pre-Step-5 input cannot strand the
@@ -141,7 +148,9 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
         -- "throwing must not skip teardown" discipline the shutdown pcall
         -- already applies.  The error is logged (real logger), never
         -- swallowed silently.
-        local flush_ok, flush_err = pcall(function()
+        -- Steps 1-4 as a thunk so the dispatch below can run them inline or after
+        -- raising the network (close-push).
+        local steps = function()
             -- Step 1: persist progress JSON.  Cheap, always safe.  Pass the
             -- close/suspend trigger (mirroring the annotation sync below) so
             -- the final-position push is labelled in the sync journal: under
@@ -210,14 +219,13 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
                 plugin:_doCloudUpload(state)
             end
 
-            -- Step 4: tell Syncthing to scan our file.
+            -- Step 4: tell Syncthing to scan our file.  The orchestrator's
+            -- transport.is_available() handles "is daemon up?" so no pre-flight
+            -- status shortcut is needed here.
             local function trigger_scan(force)
                 if not plugin:_isFileTypeSynced(state.file) then return end
                 if not plugin.use_syncthing then return end
 
-                -- The orchestrator's transport.is_available() handles "is daemon
-                -- up?" so we no longer need a pre-flight KOSyncthingPlusAPI
-                -- status.isRunning shortcut here.
                 local ok, err = pcall(function()
                     plugin:_doTriggerScan(state, { force = force })
                 end)
@@ -226,23 +234,91 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
                 end
             end
 
-            -- A DESTROYING flush runs the scan INLINE and FORCED: Step 5 below
-            -- shuts the transport down synchronously right after, so a nextTick
-            -- scan would fire post-shutdown (_shutdown=true) and be dropped; and
-            -- an earlier offline autosave may have left the book in_backoff with
-            -- Step 5 about to cancel that pending retry, so the policy must be
-            -- bypassed or the close-time scan is lost.  Step 1's _writeSave is
-            -- synchronous, so the bytes are already on disk here.  Non-destroying
-            -- (suspend/autosave): defer via nextTick as before, keeping backoff.
+            -- A: on a DESTROYING flush run the scan INLINE — Step 5 below shuts
+            -- the transport down synchronously right after, so a nextTick scan
+            -- would fire post-shutdown (_shutdown=true) and be dropped.  Step 1's
+            -- _writeSave is synchronous, so the bytes are already on disk here.
+            -- I: force=true on this terminal scan — an offline autosave attempt
+            -- may have left it in_backoff, and Step 5 cancels the pending retry,
+            -- so the policy must be bypassed or the close-time scan is lost.
+            -- Non-destroying (suspend/autosave): defer via nextTick (no shutdown
+            -- follows) and keep the normal debounce/backoff (force=false).
             if opts.destroying then
                 trigger_scan(true)
             elseif ui_manager and ui_manager.nextTick then
                 ui_manager:nextTick(function() trigger_scan(false) end)
             end
-        end)
-        if not flush_ok then
-            logger.warn("Syncery: teardown flush error: " .. tostring(flush_err))
         end
+
+        -- BEST-EFFORT and idempotent: Steps 1-4 must never strand Step 5's
+        -- cleanup, and must run at most once however the dispatch below reaches us.
+        local flushed = false
+        local function run_flush()
+            if flushed then return end
+            flushed = true
+            local flush_ok, flush_err = pcall(steps)
+            if not flush_ok then
+                logger.warn("Syncery: teardown flush error: " .. tostring(flush_err))
+            end
+        end
+
+        -- E: when close-push RAISES the link, KOReader's NetworkConnected event
+        -- is delayed and hasn't reset the reachability verdict yet.  A stale
+        -- `unreachable` (set by an earlier NetworkDisconnected) with no cached IP
+        -- would make Step 3's gate skip the cloud push.  Apply the same reset the
+        -- real event would, synchronously, BEFORE the flush.
+        -- F: but ONLY when the link was actually raised (was offline).  If we were
+        -- already online, goOnlineToRun runs this immediately and the verdict may
+        -- be a FRESH note_failure (server genuinely down, not an offline blip) —
+        -- clearing it would fail open and block the close on a dead server.  So
+        -- gate the reset on the pre-raise link state captured below.
+        local was_online      -- set in the close-push branch, before goOnlineToRun
+        local function online_flush()
+            if not was_online and plugin._cloud_reachability
+                    and plugin._cloud_reachability.on_network_connected then
+                pcall(function() plugin._cloud_reachability:on_network_connected() end)
+            end
+            run_flush()
+        end
+
+        -- KOSync close-push: on a terminal flush, raise Wi-Fi and flush once
+        -- online, when opted in and a transport is actually CONFIGURED (B: not
+        -- just a master toggle, or we'd wake the radio with nothing to push).
+        -- H: the readiness gate, the link probe, and goOnlineToRun all run
+        -- OUTSIDE the steps pcall, so wrap the whole attempt — a raising Settings
+        -- lookup or NetworkMgr probe must not skip the unconditional run_flush()
+        -- and Step 5 below.  The fallback run_flush() is a no-op if close_push
+        -- already flushed, else it runs the offline path (network steps self-skip).
+        local function close_push()
+            -- M: also require THIS book to be sync-eligible — both push paths
+            -- (cloud upload, Syncthing scan) self-skip on _isFileTypeSynced, so
+            -- for an excluded book (extension/per-book disable) waking Wi-Fi would
+            -- buy nothing.  Cheap (the push paths call it anyway).
+            if not (opts.destroying and plugin.wake_wifi_for_sync
+                    and plugin:_hasConfiguredTransportForClosePush()
+                    and plugin:_isFileTypeSynced(state.file)) then
+                return
+            end
+            was_online = plugin:_isNetworkOnline()
+            if was_online then
+                -- J: already connected — skip goOnlineToRun (its online check can
+                -- run a WAN/DNS probe that stalls on captive/local-only Wi-Fi);
+                -- we already have the cheap link verdict, so flush directly.
+                online_flush()
+                return
+            end
+            -- Offline: raise Wi-Fi, flush once online.  D: guard a Suspend/Resume
+            -- emitted during the blocking wait so it can't run a duplicate flush.
+            plugin._close_push_active = true
+            plugin:_goOnlineToRun(online_flush)
+            plugin._close_push_active = nil
+        end
+        local ok_cp, err_cp = pcall(close_push)
+        if not ok_cp then
+            plugin._close_push_active = nil   -- clear if a raise happened mid-wait
+            logger.warn("Syncery: close-push error: " .. tostring(err_cp))
+        end
+        run_flush()
     end
 
     -- Step 5: lifecycle-specific tidying.  The only work here is the

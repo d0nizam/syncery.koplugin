@@ -796,7 +796,21 @@ function T.build(plugin)
             _("Enable Cloud storage first."),
             _("Tap to set up Dropbox / WebDAV / FTP and adjust upload timing.")),
         sub_item_table_func = function() return T.menuCloudConfig(plugin) end,
+        separator           = true,
     })
+
+    -- Opt-in close-push toggle (applies to whichever transport is on).
+    table.insert(items, H.makeBoolToggle(plugin,
+        "wake_wifi_for_sync", "syncery_wake_wifi_for_sync",
+        _("Wake Wi-Fi to finish syncing on close"),
+        _("When you close a book (or quit KOReader) while offline, bring Wi-Fi "
+        .. "up and wait for it before pushing — so your latest position and "
+        .. "annotations actually reach your other devices instead of being "
+        .. "silently held back until some later session.\n\n"
+        .. "Respects your device's \"when network is needed\" setting: it only "
+        .. "turns Wi-Fi on if that is set to turn it on automatically (not "
+        .. "prompt or ignore).  Off by default.  Closing may pause briefly "
+        .. "while the connection comes up.")))
 
     return items
 end

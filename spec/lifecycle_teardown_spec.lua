@@ -35,6 +35,12 @@ local function make_fake_plugin(opts)
         _active_sync_box         = opts.active_sync_box,  -- nil unless set
         _transport               = opts.transport,
         _file_type_synced        = opts.file_type_synced ~= false,
+        -- Close-push opt-in (default OFF).
+        wake_wifi_for_sync       = opts.wake_wifi_for_sync,
+        -- Transport readiness (B): default configured so existing tests, which
+        -- only flip use_cloud/use_syncthing, keep exercising the seam.
+        _cloud_configured        = opts.cloud_configured ~= false,
+        _syncthing_configured    = opts.syncthing_configured ~= false,
 
         -- The state returned by getCurrentState (set to nil to test
         -- the "no document open" path).
@@ -64,6 +70,26 @@ local function make_fake_plugin(opts)
         record("_isFileTypeSynced", file)
         return self._file_type_synced
     end
+    -- Close-push seam.  opts.go_online: "blocked" => link not raised, cb NOT run,
+    -- false; "throw" => raises before cb; "throw_after" => runs cb then raises;
+    -- otherwise runs cb and returns true.
+    function plugin:_goOnlineToRun(cb)
+        record("_goOnlineToRun")
+        if opts.go_online == "throw" then error("goOnlineToRun boom") end
+        if opts.go_online == "blocked" then return false end
+        cb()
+        if opts.go_online == "throw_after" then error("goOnlineToRun boom after cb") end
+        return true
+    end
+    -- B: close-push gates on configured (not just enabled) transports.
+    function plugin:_hasConfiguredTransportForClosePush()
+        if self.use_cloud and self._cloud_configured then return true end
+        if self.use_syncthing and self._syncthing_configured then return true end
+        return false
+    end
+    -- F: link state captured before goOnlineToRun.  Default OFFLINE — close-push
+    -- is the "I was offline, raise the link" case, where the E reset applies.
+    function plugin:_isNetworkOnline() return opts.network_online == true end
 
     -- Mock the lifecycle.timers handle that teardown calls cancel_all on.
     plugin._lifecycle = {
@@ -77,6 +103,9 @@ local function make_fake_plugin(opts)
     -- synchronously before _doCloudUpload, so the gate answers inline.
     plugin._cloud_reachability = {
         warm_blocking = function() record("warm_blocking") end,
+        -- E: the online close-push path resets the verdict (as the delayed
+        -- NetworkConnected would) before the flush.
+        on_network_connected = function() record("on_network_connected") end,
     }
 
     -- Convenience predicate for the assertions.
@@ -93,6 +122,15 @@ local function make_fake_plugin(opts)
             if c.method == method then return i end
         end
         return nil
+    end
+
+    -- How many times `method` was recorded (for "ran exactly once" checks).
+    function plugin:count(method)
+        local n = 0
+        for _, c in ipairs(self._calls) do
+            if c.method == method then n = n + 1 end
+        end
+        return n
     end
 
     return plugin
@@ -662,6 +700,310 @@ do
     h.assert_true(c ~= nil, "non-destroying scan ran")
     h.assert_true(c.args[2] == nil or c.args[2].force ~= true,
         "deferred scan NOT forced (keeps normal debounce/backoff)")
+end
+-- ----------------------------------------------------------------------------
+-- Close-push (KOSync goOnlineToRun pattern).  Gated on wake_wifi_for_sync +
+-- destroying + a configured transport; flush must run EXACTLY ONCE in all paths.
+-- ----------------------------------------------------------------------------
+
+
+-- Default OFF: _goOnlineToRun is never consulted; flush runs once as before.
+do
+    local plugin = make_fake_plugin{}   -- wake_wifi_for_sync nil
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "wake off: close-push seam not used")
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran exactly once")
+end
+
+
+-- Opt-in + destroying + transport, link raised (returns true): route through
+-- the seam, run the flush ONCE (not twice).
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_true(plugin:called("_goOnlineToRun") ~= nil,
+        "wake on: routed through goOnlineToRun")
+    h.assert_equal(plugin:count("_goOnlineToRun"), 1, "seam consulted once")
+    h.assert_equal(plugin:count("_writeSave"),     1, "flush ran exactly once (no double)")
+    h.assert_true(plugin:called("_doCloudUpload") ~= nil, "cloud push happened")
+end
+
+
+-- Opt-in but link could NOT be raised (returns false): fall through and flush
+-- anyway, exactly once (offline; the network steps self-skip in production).
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, go_online = "blocked" }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_true(plugin:called("_goOnlineToRun") ~= nil, "seam was tried")
+    h.assert_equal(plugin:count("_writeSave"), 1,
+        "flush still ran exactly once via the fallback")
+end
+
+
+-- NON-destroying flush (suspend): close-push is gated off, seam not used.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, {})   -- no destroying
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "suspend: close-push not applied (destroying only)")
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran once")
+end
+
+
+-- goOnlineToRun raising BEFORE running cb must not strand Step 5; flush still
+-- runs once via the fallback.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, go_online = "throw" }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran once via fallback after the raise")
+    h.assert_equal(plugin.timers_cancel_all_count, 1, "Step 5 cancel_all still ran")
+    h.assert_true(plugin.destroyed, "Step 5 destroyed still set")
+end
+
+
+-- goOnlineToRun raising AFTER running cb must not double-flush, and Step 5 runs.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, go_online = "throw_after" }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran exactly once (idempotent)")
+    h.assert_equal(plugin.timers_cancel_all_count, 1, "Step 5 cancel_all still ran")
+end
+
+
+-- Opt-in + destroying but NO transport configured: nothing to push, seam unused.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true,
+                                     use_cloud = false, use_syncthing = false }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "no transport: close-push seam not used")
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran once")
+end
+
+
+-- B: opt-in + destroying + master toggle ON but transport NOT configured
+-- (cloud enabled, no server set) → seam unused, no Wi-Fi wake with nothing to push.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true,
+                                     use_syncthing = false,
+                                     cloud_configured = false }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "unconfigured transport: close-push seam not used despite the toggle")
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran once (offline)")
+end
+
+
+-- A: a DESTROYING flush triggers the Syncthing scan INLINE, before transport
+-- shutdown — never via nextTick, which would fire post-shutdown (_shutdown=true)
+-- and be dropped.  Uses an ASYNC uimgr that only QUEUES nextTick callbacks.
+do
+    local order = {}
+    local transport = { shutdown = function() table.insert(order, "shutdown") end }
+    local plugin = make_fake_plugin{ transport = transport }
+    plugin._doTriggerScan = function() table.insert(order, "scan") end
+
+    local queued = {}
+    local ui = make_fake_uimgr()
+    ui.nextTick = function(_, fn) table.insert(queued, fn) end   -- async: just queue
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_equal(#queued, 0, "destroying: scan NOT deferred to nextTick")
+    h.assert_equal(order[1], "scan",     "scan ran inline...")
+    h.assert_equal(order[2], "shutdown", "...before transport shutdown (not lost)")
+end
+
+
+-- A (counterpart): a NON-destroying flush still DEFERS the scan via nextTick
+-- (no shutdown follows, and we must not block the event loop).
+do
+    local plugin = make_fake_plugin{}
+    local queued = {}
+    local ui = make_fake_uimgr()
+    ui.nextTick = function(_, fn) table.insert(queued, fn) end
+
+    Teardown.flush(plugin, ui, fixed_now, nil, {})   -- suspend/autosave
+
+    h.assert_equal(#queued, 1, "non-destroying: scan deferred to nextTick")
+    h.assert_nil(plugin:called("_doTriggerScan"),
+        "scan has NOT run yet (still queued)")
+    queued[1]()                                       -- drain the tick
+    h.assert_true(plugin:called("_doTriggerScan") ~= nil, "scan runs when the tick drains")
+end
+
+
+-- D: a Suspend re-entering Teardown.flush DURING the blocking goOnlineToRun
+-- (e.g. an Android focus switch) must NOT run a duplicate flush.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true }
+    local ui     = make_fake_uimgr()
+    plugin._goOnlineToRun = function(self, cb)
+        -- The OS emits Suspend while we block; it routes back into teardown.
+        Teardown.flush(self, ui, fixed_now, nil, {})   -- re-entrant suspend flush
+        cb()                                           -- then the link comes up
+        return true
+    end
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_equal(plugin:count("_writeSave"), 1,
+        "re-entrant suspend during close-push did NOT cause a second flush")
+end
+
+
+-- E: on the online close-push path the stale reachability verdict is reset
+-- (mirrors the delayed NetworkConnected) BEFORE the cloud push, so a verdict
+-- set unreachable while offline doesn't make Step 3 skip the upload.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_true(plugin:called("on_network_connected") ~= nil,
+        "reachability verdict reset on the online close-push path")
+    h.assert_true(plugin:called_index("on_network_connected")
+                  < plugin:called_index("_doCloudUpload"),
+        "verdict reset happens BEFORE the cloud upload")
+end
+
+
+-- E (counterpart): on the OFFLINE fallback (link not raised) the verdict is NOT
+-- reset — we're still offline, the network steps self-skip.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, go_online = "blocked" }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("on_network_connected"),
+        "offline fallback does NOT reset reachability")
+end
+
+
+-- F+J: when close-push runs while ALREADY online, goOnlineToRun is SKIPPED
+-- (J: its online check can WAN/DNS-probe and stall) and we flush directly; the
+-- reachability verdict is NOT reset (F: a fresh note_failure for a genuinely
+-- down server must stand instead of being cleared to fail-open).
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, network_online = true }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "J: already online -> goOnlineToRun skipped (no WAN/DNS-probe stall)")
+    h.assert_nil(plugin:called("on_network_connected"),
+        "F: already online -> stale-verdict reset SKIPPED (fresh failure preserved)")
+    h.assert_true(plugin:called("_doCloudUpload") ~= nil, "flush still ran (direct)")
+    h.assert_equal(plugin:count("_writeSave"), 1, "flush ran exactly once")
+end
+
+
+-- H: a raising readiness gate during close-push must NOT strand Step 5 — the
+-- preflight runs outside the steps pcall, so the whole attempt is itself pcall'd.
+do
+    local shutdown_count = 0
+    local transport = { shutdown = function() shutdown_count = shutdown_count + 1 end }
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, transport = transport }
+    plugin._hasConfiguredTransportForClosePush = function() error("settings boom") end
+    local ui = make_fake_uimgr()
+    local warn_messages = {}
+    local logger = { warn = function(m) table.insert(warn_messages, m) end }
+
+    local ok = pcall(Teardown.flush, plugin, ui, fixed_now, logger, { destroying = true })
+
+    h.assert_true(ok, "raising close-push gate doesn't escape teardown")
+    h.assert_equal(plugin:count("_writeSave"), 1, "fell back to the offline flush")
+    h.assert_equal(shutdown_count, 1, "Step 5 transport:shutdown still ran")
+    h.assert_equal(plugin.timers_cancel_all_count, 1, "Step 5 cancel_all still ran")
+    h.assert_true(plugin.destroyed, "Step 5 destroyed still set")
+    h.assert_true(#warn_messages == 1 and warn_messages[1]:find("close%-push") ~= nil,
+        "warn identifies the close-push attempt as the failure point")
+end
+
+
+-- H: goOnlineToRun raising mid-wait (offline path) clears the re-entrancy guard
+-- flag and still reaches Step 5 via the fallback run_flush.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, go_online = "throw" }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, { warn = function() end }, { destroying = true })
+
+    h.assert_nil(plugin._close_push_active, "guard flag cleared after a mid-wait raise")
+    h.assert_equal(plugin:count("_writeSave"), 1, "offline fallback flushed once")
+    h.assert_true(plugin.destroyed, "Step 5 still reached")
+end
+
+
+-- I: the terminal (destroying) Syncthing scan is FORCED (bypass backoff), so an
+-- offline autosave's pending retry can't make Step 5 drop the close-time scan.
+do
+    local plugin = make_fake_plugin{}
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    local c = plugin:called("_doTriggerScan")
+    h.assert_true(c ~= nil, "destroying flush triggered the scan")
+    h.assert_true(c.args[2] ~= nil and c.args[2].force == true,
+        "terminal scan forced (bypasses debounce/backoff)")
+end
+
+
+-- I (counterpart): the deferred (non-destroying) scan keeps normal backoff —
+-- only the terminal scan bypasses policy.
+do
+    local plugin = make_fake_plugin{}
+    local ui     = make_fake_uimgr()   -- default nextTick fires synchronously
+
+    Teardown.flush(plugin, ui, fixed_now, nil, {})   -- suspend/autosave
+
+    local c = plugin:called("_doTriggerScan")
+    h.assert_true(c ~= nil, "non-destroying scan ran")
+    h.assert_true(c.args[2] == nil or c.args[2].force ~= true,
+        "deferred scan NOT forced (keeps normal debounce/backoff)")
+end
+
+
+-- M: an excluded book (not sync-eligible) must NOT wake Wi-Fi on close — both
+-- push paths self-skip on _isFileTypeSynced, so raising the radio buys nothing.
+do
+    local plugin = make_fake_plugin{ wake_wifi_for_sync = true, file_type_synced = false }
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    h.assert_nil(plugin:called("_goOnlineToRun"),
+        "excluded book: close-push seam not used (nothing to push)")
+    h.assert_equal(plugin:count("_writeSave"), 1, "offline flush still ran once")
 end
 
 

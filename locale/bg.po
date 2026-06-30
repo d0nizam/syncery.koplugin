@@ -43,13 +43,13 @@ msgid_plural "%d books are not on this device — nothing was moved or deleted f
 msgstr[0] "%d книга не е на това устройство — нищо не беше преместено или изтрито за нея."
 msgstr[1] "%d книги не са на това устройство — нищо не беше преместено или изтрито за тях."
 
-#: main.lua:3331
+#: main.lua:3358
 msgid "%d file was skipped — its book could not be identified, so it was left untouched."
 msgid_plural "%d files were skipped — their book could not be identified, so they were left untouched."
 msgstr[0] "%d файл е пропуснат — книгата му не можа да бъде разпозната и е оставен непокътнат."
 msgstr[1] "%d файла са пропуснати — книгата им не можа да бъде разпозната и са оставени непокътнати."
 
-#: main.lua:2573
+#: main.lua:2587
 msgid "%d new annotation from another device"
 msgid_plural "%d new annotations from another device"
 msgstr[0] "%d нова анотация от друго устройство"
@@ -64,7 +64,7 @@ msgstr "%d от %d"
 msgid "%s is at %d%% — %s"
 msgstr "%s е на %d%% — %s"
 
-#: main.lua:3366
+#: main.lua:3393
 msgid "(%d other file was skipped — its book could not be identified.)"
 msgid_plural "(%d other files were skipped — their book could not be identified.)"
 msgstr[0] "(%d друг файл е пропуснат — книгата му не можа да бъде разпозната.)"
@@ -129,7 +129,7 @@ msgstr "Филтри за анотации"
 msgid "Annotations (%d)"
 msgstr "Анотации (%d)"
 
-#: main.lua:1827
+#: main.lua:1831
 msgid "Annotations are already synced — this only moves your reading position."
 msgstr "Анотациите вече са синхронизирани — това само премества позицията ви за четене."
 
@@ -313,7 +313,7 @@ msgstr "Изчисти филтъра"
 msgid "Cloud storage isn't available in this KOReader build."
 msgstr "Облачно хранилище не е налично в тази компилация на KOReader."
 
-#: main.lua:3512
+#: main.lua:3539
 msgid ""
 "Conflict-file integration is active.\n"
 "\n"
@@ -339,7 +339,7 @@ msgstr "Копиране на диагностична информация"
 msgid "Could not check for updates."
 msgstr "Неуспешна проверка за обновления."
 
-#: main.lua:3521
+#: main.lua:3548
 msgid "Could not register conflict-file patterns with KOSyncthing+.  Its API may have changed; Syncery still merges conflicts locally, but KOSyncthing+ may count them in its badge."
 msgstr "Шаблоните за конфликтни файлове не можаха да бъдат регистрирани в KOSyncthing+.  Неговото API може да се е променило; Syncery пак слива конфликтите локално, но KOSyncthing+ може да ги брои в значката си."
 
@@ -352,7 +352,7 @@ msgstr "Не успях да разреша sync-конфликта."
 msgid "Could not save the resolved status."
 msgstr "Неуспешно записване на разрешения статус."
 
-#: main.lua:3321
+#: main.lua:3348
 msgid "Could not scan for orphaned sync files."
 msgstr "Сканирането за осиротели файлове за синхронизиране не успя."
 
@@ -378,11 +378,11 @@ msgstr "Дата"
 msgid "Default"
 msgstr "По подразбиране"
 
-#: main.lua:3363
+#: main.lua:3390
 msgid "Delete these sync files permanently? No book files will be touched."
 msgstr "Да се изтрият ли тези файлове за синхронизиране окончателно? Книжните файлове няма да бъдат засегнати."
 
-#: main.lua:3779
+#: main.lua:3806
 msgid "Diagnostic info (copied to clipboard)"
 msgstr "Диагностична информация (копирана в клипборда)"
 
@@ -539,7 +539,7 @@ msgstr "Размер на шрифта"
 msgid "Font weight (boldness)"
 msgstr "Тегло на шрифта (удебеляване)"
 
-#: main.lua:3358
+#: main.lua:3385
 msgid "Found %d orphaned sync file. The book below was not found:"
 msgid_plural "Found %d orphaned sync files. The books below were not found:"
 msgstr[0] "Намерен е %d осиротял файл за синхронизиране. Книгата по-долу не е намерена:"
@@ -646,11 +646,11 @@ msgstr "Скочи до друго устройство сега…"
 msgid "Jump to most recent position"
 msgstr "Към най-скорошната позиция"
 
-#: main.lua:1782
+#: main.lua:1786
 msgid "Jumped to new position."
 msgstr "Скок до новата позиция."
 
-#: main.lua:1881
+#: main.lua:1885
 msgid "Jumped to the newest position from another device."
 msgstr "Скок до най-новата позиция от друго устройство."
 
@@ -662,7 +662,7 @@ msgstr "KOSyncthing+"
 msgid "KOSyncthing+ integration status…"
 msgstr "Състояние на интеграцията с KOSyncthing+…"
 
-#: main.lua:3822 syncery_update.lua:284 syncery_update.lua:331
+#: main.lua:3849 syncery_update.lua:284 syncery_update.lua:331
 msgid "Later"
 msgstr "По-късно"
 
@@ -782,7 +782,7 @@ msgstr "Най-скорошно другаде: %s на %s."
 msgid "Most recent: %s on %s."
 msgstr "Най-скорошно: %s на %s."
 
-#: main.lua:3423
+#: main.lua:3450
 msgid ""
 "Move %d annotation to Trash?\n"
 "\n"
@@ -831,11 +831,11 @@ msgstr "Навигация"
 msgid "Never jump"
 msgstr "Никога не скачай"
 
-#: main.lua:2570
+#: main.lua:2584
 msgid "New annotations and font & layout from another device"
 msgstr "Нови анотации, шрифт и оформление от друго устройство"
 
-#: main.lua:2576
+#: main.lua:2590
 msgid "New font & layout from another device"
 msgstr "Нов шрифт и оформление от друго устройство"
 
@@ -856,7 +856,7 @@ msgstr ""
 msgid "No Syncthing API key yet — set one up first. Not needed with KOSyncthing+."
 msgstr "Все още няма API ключ за Syncthing — първо го настройте. Не е нужно с KOSyncthing+."
 
-#: main.lua:1874
+#: main.lua:1878
 msgid "No newer position from another device to jump to."
 msgstr "Няма по-нова позиция от друго устройство, към която да се скочи."
 
@@ -874,7 +874,7 @@ msgstr ""
 "\n"
 "Отвори друга книга, скочи до позицията на друго устройство и тогава тази опция ще стане достъпна отново."
 
-#: main.lua:2980
+#: main.lua:2994
 msgid ""
 "No sync transport is set up yet.\n"
 "\n"
@@ -901,7 +901,7 @@ msgstr "Не са намерени синхронизирани анотации
 msgid "No synced reading progress found yet."
 msgstr "Все още няма намерен синхронизиран прогрес на четене."
 
-#: main.lua:2904
+#: main.lua:2918
 msgid "Not synced (no cloud server set): %s"
 msgstr "Не е синхронизирано (няма зададен облачен сървър): %s"
 
@@ -917,7 +917,7 @@ msgstr "Забележка: плъгина „Облачно хранилище+
 msgid "Notes: All"
 msgstr "Бележки: всички"
 
-#: main.lua:2990
+#: main.lua:3004
 msgid ""
 "Nothing is turned on to sync yet.\n"
 "\n"
@@ -955,7 +955,7 @@ msgstr "Само това устройство е чело тази книга (
 msgid "Open"
 msgstr "Отвори"
 
-#: main.lua:1945
+#: main.lua:1949
 msgid "Open a book first to push its handmade table of contents."
 msgstr "Първо отворете книга, за да изпратите нейното ръчно създадено съдържание."
 
@@ -1083,7 +1083,7 @@ msgstr ""
 msgid "Receive handmade TOC"
 msgstr "Получаване на ръчно създадено съдържание"
 
-#: main.lua:2602
+#: main.lua:2616
 msgid "Reload"
 msgstr "Презареди"
 
@@ -1091,7 +1091,7 @@ msgstr "Презареди"
 msgid "Remove this book from Syncery on this device"
 msgstr "Премахни тази книга от Syncery на това устройство"
 
-#: main.lua:3381
+#: main.lua:3408
 msgid "Removed %d orphaned sync file."
 msgid_plural "Removed %d orphaned sync files."
 msgstr[0] "Премахнат е %d осиротял файл за синхронизиране."
@@ -1121,7 +1121,7 @@ msgstr "Разреши"
 msgid "Resolve conflict"
 msgstr "Разреши конфликта"
 
-#: main.lua:3821 syncery_update.lua:283
+#: main.lua:3848 syncery_update.lua:283
 msgid "Restart"
 msgstr "Рестартирай"
 
@@ -1163,11 +1163,11 @@ msgstr ""
 "\n"
 "Вече синхронизираните книги се прескачат."
 
-#: main.lua:1289
+#: main.lua:1293
 msgid "Scanning books for data…"
 msgstr "Сканиране на книги за данни…"
 
-#: main.lua:1283
+#: main.lua:1287
 msgid ""
 "Scanning books for data…\n"
 "%d / %d"
@@ -1266,7 +1266,7 @@ msgstr "Сортирай по"
 msgid "Space Between Notes"
 msgstr "Разстояние между бележките"
 
-#: main.lua:2895 syncery_ui/menu/db_sync_section.lua:84
+#: main.lua:2909 syncery_ui/menu/db_sync_section.lua:84
 msgid "Statistics"
 msgstr "Статистика"
 
@@ -1288,7 +1288,7 @@ msgstr ""
 "\n"
 "Докоснете, за да проверите дали интеграцията е активна, или да я регистрирате повторно след инсталиране на KOSyncthing+."
 
-#: main.lua:1833
+#: main.lua:1837
 msgid "Stay"
 msgstr "Остани"
 
@@ -1367,7 +1367,7 @@ msgstr ""
 msgid "Sync-conflict resolved."
 msgstr "Sync-конфликтът е разрешен."
 
-#: _meta.lua:3 main.lua:3835
+#: _meta.lua:3 main.lua:3862
 msgid "Syncery"
 msgstr "Syncery"
 
@@ -1389,7 +1389,7 @@ msgstr ""
 "\n"
 "Инсталирана версия: %1"
 
-#: main.lua:3818
+#: main.lua:3845
 msgid ""
 "Syncery settings have been reset.\n"
 "\n"
@@ -1409,23 +1409,23 @@ msgstr ""
 "\n"
 "Да рестартирам ли KOReader сега, за да се зареди?"
 
-#: main.lua:3883
+#: main.lua:3910
 msgid "Syncery: annotation browser"
 msgstr "Syncery: Браузър за анотации"
 
-#: main.lua:3873
+#: main.lua:3900
 msgid "Syncery: jump to another device"
 msgstr "Syncery: скочи до друго устройство"
 
-#: main.lua:3879
+#: main.lua:3906
 msgid "Syncery: progress browser"
 msgstr "Syncery: Браузър за прогрес"
 
-#: main.lua:3854
+#: main.lua:3881
 msgid "Syncery: undo last jump"
 msgstr "Syncery: отмени последния скок"
 
-#: main.lua:1125
+#: main.lua:1129
 #, lua-format
 msgid ""
 "Synceryhash storage mode enabled.\n"
@@ -1446,7 +1446,7 @@ msgstr ""
 "\n"
 "Уверете се, че Syncthing е настроен да синхронизира тази папка, за да достигат файловете ви до другите устройства."
 
-#: main.lua:1307
+#: main.lua:1311
 #, lua-format
 msgid ""
 "Annotation scan complete.\n"
@@ -1463,15 +1463,15 @@ msgstr ""
 "Без анотации: %d\n"
 "Грешки: %d"
 
-#: main.lua:1358
+#: main.lua:1362
 msgid "Syncery can't identify this book reliably, so it won't sync across your devices. This usually means the file couldn't be read fully."
 msgstr "Syncery не може да разпознае надеждно тази книга, затова тя няма да се синхронизира между устройствата ви. Това обикновено означава, че файлът не може да бъде прочетен изцяло."
 
-#: main.lua:1466
+#: main.lua:1470
 msgid "Syncery ran into an unexpected error while opening this book."
 msgstr "Syncery срещна неочаквана грешка при отваряне на тази книга."
 
-#: main.lua:1467 syncery_ui/annotation_viewer/viewer_lifted.lua:2659
+#: main.lua:1471 syncery_ui/annotation_viewer/viewer_lifted.lua:2659
 #: syncery_ui/menu/maintenance_section.lua:136
 #: syncery_ui/progress_browser/init.lua:307 syncery_ui/status_panel.lua:354
 #: syncery_ui/status_ui/init.lua:223 syncery_ui/trash/init.lua:205
@@ -1512,7 +1512,7 @@ msgstr "Докоснете, за да въведете API ключа за Synct
 msgid "Text Margin: "
 msgstr "Отстъп на текста: "
 
-#: main.lua:3484
+#: main.lua:3511
 msgid ""
 "The KOSyncthing+ plugin is not installed.\n"
 "\n"
@@ -1611,56 +1611,56 @@ msgstr "Ет≠ "
 msgid "Undo last jump"
 msgstr "Отмени последния скок"
 
-#: main.lua:1559 syncery_ui/annotation_viewer/viewer_lifted.lua:460
+#: main.lua:1563 syncery_ui/annotation_viewer/viewer_lifted.lua:460
 #: syncery_ui/progress_browser/init.lua:229 syncery_ui/status_ui/init.lua:178
 #: syncery_ui/status_ui/init.lua:253
 msgid "Unknown"
 msgstr "Неизвестно"
 
-#: main.lua:1734
+#: main.lua:1738
 msgid "Auto-jumped to new position."
 msgstr "Автоматичен скок до новата позиция."
 
-#: main.lua:1735 main.lua:1783 syncery_ui/progress_browser/init.lua:158
+#: main.lua:1739 main.lua:1787 syncery_ui/progress_browser/init.lua:158
 #: syncery_ui/status_ui/init.lua:290
 msgid "Undo"
 msgstr "Отмяна"
 
-#: main.lua:1892
+#: main.lua:1896
 msgid "Nothing to undo."
 msgstr "Няма какво да се отмени."
 
-#: main.lua:1912
+#: main.lua:1916
 msgid "Returned to previous position."
 msgstr "Върнато към предишната позиция."
 
-#: main.lua:1955
+#: main.lua:1959
 msgid "Handmade TOC uses text positions that only work on reflowable documents (EPUB, FB2). This PDF or image document cannot share a TOC."
 msgstr "Ръчно създаденото съдържание използва текстови позиции, които работят само в преподреждащи се документи (EPUB, FB2). Този PDF или документ с изображения не може да споделя съдържание."
 
-#: main.lua:1972
+#: main.lua:1976
 msgid "No handmade table of contents found for this book."
 msgstr "Не е намерено ръчно създадено съдържание за тази книга."
 
-#: main.lua:1998
+#: main.lua:2002
 msgid "Handmade TOC will sync to other devices on next sync."
 msgstr "Ръчно създаденото съдържание ще се синхронизира с другите устройства при следващото синхронизиране."
 
-#: main.lua:2003
+#: main.lua:2007
 msgid "Could not save handmade TOC for sync."
 msgstr "Ръчно създаденото съдържание не можа да бъде запазено за синхронизиране."
 
-#: main.lua:2095
+#: main.lua:2099
 #, lua-format
 msgid "Syncery: saved at page %d (%.0f%%)"
 msgstr "Syncery: запазено на страница %d (%.0f%%)"
 
-#: main.lua:2452
+#: main.lua:2466
 #, lua-format
 msgid "Synced annotations (%d pulled, %d pushed)"
 msgstr "Анотациите са синхронизирани (%d изтеглени, %d изпратени)"
 
-#: main.lua:2457
+#: main.lua:2471
 #, lua-format
 msgid "Resolved %d annotation conflict(s)"
 msgstr "Разрешени конфликти на анотации: %d"
@@ -1677,13 +1677,17 @@ msgstr "Неуспешно обновление."
 msgid "Use Syncery's cloud server"
 msgstr "Използвай облачния сървър на Синери"
 
-#: main.lua:2899
+#: main.lua:2913
 msgid "Vocab & Statistics not synced: enable the Cloud storage+ plugin."
 msgstr "Речник и Статистика не са синхронизирани: включи плъгина „Облачно хранилище+“."
 
-#: main.lua:2895 syncery_ui/menu/db_sync_section.lua:86
+#: main.lua:2909 syncery_ui/menu/db_sync_section.lua:86
 msgid "Vocabulary"
 msgstr "Речник"
+
+#: syncery_ui/menu/transport_section.lua:805
+msgid "Wake Wi-Fi to finish syncing on close"
+msgstr ""
 
 #: syncery_ui/menu/annotations_section.lua:625
 msgid ""
@@ -1703,22 +1707,22 @@ msgstr ""
 "\n"
 "И в двата случая можеш да скочиш при поискване от „Jump to another device now… по-долу.  Отмени последния скок до 60 секунди от Меню → Syncery → Тази книга → Отмени последния скок."
 
-#: main.lua:2639
+#: main.lua:2653
 msgid "Resolved progress conflicts"
 msgstr "Разрешени конфликти на напредъка"
 
-#: main.lua:1879 main.lua:2717 main.lua:2781 syncery_ui/jump_toast.lua:40
+#: main.lua:1883 main.lua:2731 main.lua:2795 syncery_ui/jump_toast.lua:40
 #: syncery_ui/progress_browser/init.lua:157
 #: syncery_ui/progress_browser/init.lua:282
 msgid "Another device"
 msgstr "Друго устройство"
 
-#: main.lua:2718 main.lua:2782 syncery_ui/menu/maintenance_section.lua:461
+#: main.lua:2732 main.lua:2796 syncery_ui/menu/maintenance_section.lua:461
 #: syncery_ui/wizard.lua:125 syncery_ui/wizard.lua:308
 msgid "Syncthing"
 msgstr "Syncthing"
 
-#: main.lua:3234
+#: main.lua:3261
 msgid ""
 "No network connection.\n"
 "Scans will be retried automatically when you're back online."
@@ -1726,84 +1730,84 @@ msgstr ""
 "Няма мрежова връзка.\n"
 "Сканиранията ще бъдат повторени автоматично, когато се върнете онлайн."
 
-#: main.lua:3246
+#: main.lua:3273
 msgid "Transport not initialised."
 msgstr "Транспортът не е инициализиран."
 
-#: main.lua:3261
+#: main.lua:3288
 msgid "Quick sync triggered."
 msgstr "Бързото синхронизиране е задействано."
 
-#: main.lua:3263 main.lua:3279 main.lua:3285 main.lua:3299
+#: main.lua:3290 main.lua:3306 main.lua:3312 main.lua:3326
 msgid "Rescan all"
 msgstr "Сканирай всичко отново"
 
-#: main.lua:3277 main.lua:3298
+#: main.lua:3304 main.lua:3325
 msgid "Scan triggered."
 msgstr "Сканирането е задействано."
 
-#: main.lua:3282
+#: main.lua:3309
 msgid "No Syncthing folders configured."
 msgstr "Няма конфигурирани папки на Syncthing."
 
-#: main.lua:3313 syncery_migration/storage_mode.lua:453
+#: main.lua:3340 syncery_migration/storage_mode.lua:453
 msgid "Filesystem access unavailable."
 msgstr "Достъпът до файловата система е недостъпен."
 
-#: main.lua:3329
+#: main.lua:3356
 msgid "No orphaned sync files found."
 msgstr "Не са намерени осиротели файлове за синхронизиране."
 
-#: main.lua:3374
+#: main.lua:3401
 msgid "Delete"
 msgstr "Изтрий"
 
-#: main.lua:3386
+#: main.lua:3413
 msgid "Orphan cleanup"
 msgstr "Почистване на осиротели файлове"
 
-#: main.lua:3405 syncery_ui/status_ui/init.lua:113
+#: main.lua:3432 syncery_ui/status_ui/init.lua:113
 #: syncery_ui/trash/init.lua:330
 msgid "No document open"
 msgstr "Няма отворен документ"
 
-#: main.lua:3418
+#: main.lua:3445
 msgid "No annotations to delete."
 msgstr "Няма анотации за изтриване."
 
-#: main.lua:3427
+#: main.lua:3454
 msgid "Move to Trash"
 msgstr "Премести в Кошчето"
 
-#: main.lua:3443
+#: main.lua:3470
 msgid "Syncery: could not save changes. Annotations not deleted."
 msgstr "Syncery: промените не можаха да бъдат запазени. Анотациите не са изтрити."
 
-#: main.lua:3457 syncery_ui/booklist/actions.lua:242
+#: main.lua:3484 syncery_ui/booklist/actions.lua:242
 #: syncery_ui/menu/per_book_section.lua:153
 msgid "Delete all"
 msgstr "Изтрий всички"
 
-#: main.lua:3461
+#: main.lua:3488
 #, lua-format
 msgid "%d annotation moved to Trash."
 msgid_plural "%d annotations moved to Trash."
 msgstr[0] "%d анотация е преместена в Кошчето."
 msgstr[1] "%d анотации са преместени в Кошчето."
 
-#: main.lua:3532
+#: main.lua:3559
 msgid "No recent activity recorded."
 msgstr "Няма записана скорошна активност."
 
-#: main.lua:3537
+#: main.lua:3564
 msgid "Recent sync activity (newest first):"
 msgstr "Скорошна активност по синхронизиране (най-новите най-горе):"
 
-#: main.lua:3548
+#: main.lua:3575
 msgid "Activity log"
 msgstr "Дневник на активността"
 
-#: main.lua:3793
+#: main.lua:3820
 msgid ""
 "Reset every Syncery setting on this device?\n"
 "\n"
@@ -1813,19 +1817,19 @@ msgstr ""
 "\n"
 "JSON файловете на Syncery за книгите на устройството НЕ се засягат — само локалните предпочитания на това устройство."
 
-#: main.lua:3794 syncery_ui/booklist/actions.lua:228
+#: main.lua:3821 syncery_ui/booklist/actions.lua:228
 msgid "Reset"
 msgstr "Нулирай"
 
-#: main.lua:3850
+#: main.lua:3877
 msgid "Syncery: sync now"
 msgstr "Syncery: синхронизирай сега"
 
-#: main.lua:3861
+#: main.lua:3888
 msgid "Syncery: rescan all folders"
 msgstr "Syncery: сканирай отново всички папки"
 
-#: main.lua:3867
+#: main.lua:3894
 msgid "Syncery: show sync status"
 msgstr "Syncery: покажи състоянието на синхронизирането"
 
@@ -1857,6 +1861,13 @@ msgstr[1] "Мигрирани са %d книги."
 #: syncery_migration/storage_mode.lua:346
 msgid "Migrate books"
 msgstr "Мигриране на книги"
+
+#: syncery_ui/menu/transport_section.lua:806
+msgid ""
+"When you close a book (or quit KOReader) while offline, bring Wi-Fi up and wait for it before pushing — so your latest position and annotations actually reach your other devices instead of being silently held back until some later session.\n"
+"\n"
+"Respects your device's \"when network is needed\" setting: it only turns Wi-Fi on if that is set to turn it on automatically (not prompt or ignore).  Off by default.  Closing may pause briefly while the connection comes up."
+msgstr ""
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:2220
 msgid "With Notes Only"
@@ -2020,7 +2031,7 @@ msgstr ""
 msgid "Migrate"
 msgstr "Мигрирай"
 
-#: main.lua:3388 syncery_ui/annotation_viewer/viewer_lifted.lua:1589
+#: main.lua:3415 syncery_ui/annotation_viewer/viewer_lifted.lua:1589
 #: syncery_ui/annotation_viewer/viewer_lifted.lua:2088
 #: syncery_ui/booklist/init.lua:273 syncery_ui/booklist/scan.lua:275
 #: syncery_ui/menu/_helpers.lua:252 syncery_ui/menu/annotations_section.lua:70
@@ -2147,7 +2158,7 @@ msgstr "Първо отворете книга — дълбокото почис
 msgid "Tap to permanently delete the Syncery JSON files for this book."
 msgstr "Докоснете, за да изтриете окончателно JSON файловете на Syncery за тази книга."
 
-#: main.lua:1866 syncery_ui/menu/advanced_section.lua:98
+#: main.lua:1870 syncery_ui/menu/advanced_section.lua:98
 #: syncery_ui/menu/annotations_section.lua:219
 #: syncery_ui/menu/per_book_section.lua:147
 msgid "No document open."
@@ -2337,7 +2348,7 @@ msgstr "неподдържан"
 msgid "• %d in %s"
 msgstr "• %d в %s"
 
-#: main.lua:3355
+#: main.lua:3382
 msgid "…and %d more"
 msgstr "…и още %d"
 

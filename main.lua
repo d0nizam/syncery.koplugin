@@ -576,6 +576,7 @@ local PREFERENCE_KEYS = {
     "syncery_sync_extensions",
     -- behaviour / display
     "syncery_jump_mode", "syncery_adapt_highlight_style",
+    "syncery_wake_wifi_for_sync",
     -- storage + diagnostics
     "syncery_storage_mode",
     "syncery_tombstone_ttl_days", "syncery_progress_freshness_days",
@@ -800,6 +801,9 @@ function Syncery:init()
         self.sync_bookmarks        = read_bool("syncery_sync_bookmarks",        true)
         self.use_syncthing         = read_bool("syncery_use_syncthing",         false)
         self.use_cloud             = read_bool("syncery_use_cloud",             false)
+        -- Opt-in close-push: bring Wi-Fi up at a terminal flush (close/quit) so
+        -- the offline push isn't silently dropped.  OFF by default.
+        self.wake_wifi_for_sync    = read_bool("syncery_wake_wifi_for_sync",    false)
         -- Trigger-only sync of the sibling Statistics / Vocabulary plugins.
         -- These live fields back the What's-synced toggles; syncery_db_sync
         -- reads the matching G_reader_settings keys (which the toggles persist).
@@ -2225,6 +2229,16 @@ function Syncery:_syncthingFolderConfigured()
         Settings.get_syncthing_folder())
 end
 
+-- True when a transport close-push could actually use is BOTH enabled and
+-- configured.  Gating wake-Wi-Fi on this (not the bare master toggles) avoids
+-- raising the radio at close when a toggle is on but nothing can be pushed
+-- (no cloud server set, or no Syncthing folder chosen).
+function Syncery:_hasConfiguredTransportForClosePush()
+    if self.use_cloud and Settings.is_cloud_configured() then return true end
+    if self.use_syncthing and self:_syncthingFolderConfigured() then return true end
+    return false
+end
+
 -- opts.force (terminal close-push): bypass the orchestrator's debounce/backoff
 -- so the last-chance scan before transport shutdown isn't dropped as in_backoff.
 function Syncery:_doTriggerScan(state, opts)
@@ -3097,6 +3111,19 @@ function Syncery:_isNetworkOnline()
         return true
     end
     return NetworkMgr:isConnected() and true or false
+end
+
+-- Bring the network up and run `cb` once online, BLOCKING until then (KOSync's
+-- goOnlineToRun close-push pattern).  Returns true if cb ran, false if the link
+-- couldn't be raised (cb then NOT run) so the caller can fall back.  Wrapped here
+-- so teardown needs no NetworkMgr require and tests can stub it.
+function Syncery:_goOnlineToRun(cb)
+    local ok, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok or not NetworkMgr
+            or type(NetworkMgr.goOnlineToRun) ~= "function" then
+        return false
+    end
+    return NetworkMgr:goOnlineToRun(cb) and true or false
 end
 
 -- ----------------------------------------------------------------------------
