@@ -881,6 +881,15 @@ function Syncery:init()
         self.ui.menu:registerToMainMenu(self)
     end
 
+    -- Register our Dispatcher actions at load time, NOT only via the one-shot
+    -- DispatcherRegisterActions broadcast: that event fires once per session
+    -- (guarded by Dispatcher.initialized), so a plugin loaded after it already
+    -- ran never registers and its actions never appear in the gesture/hotkey
+    -- pickers. Calling it here (idempotent — registerAction de-dups by name)
+    -- mirrors what cloudlibrary/KOReader plugins do and makes the actions
+    -- reliably bindable. (The broadcast still works as a fallback.)
+    self:onDispatcherRegisterActions()
+
     -- Build the transport stack.  This is the only place
     -- main.lua talks to the orchestrator directly — all push paths go
     -- through `self._transport:push_*`.  The factory wires defaults
