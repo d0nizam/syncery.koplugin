@@ -1439,7 +1439,8 @@ end
             local skip_info = do_hide_dup_info
                 and not (always_show_first and is_first_on_page)
                 and (getNoteInfoKey(note, dedup_fields) == dedup_prev_info_key)
-            local note_widget = NoteItemWidget:new{ width = note_width, note = note, show_parent = self, skip_title = skip_title, skip_info = skip_info, is_focused = (i == self.selected_item_idx) }
+            local is_focused = Device:hasDPad() and not Device:isTouchDevice() and (i == self.selected_item_idx)
+            local note_widget = NoteItemWidget:new{ width = note_width, note = note, show_parent = self, skip_title = skip_title, skip_info = skip_info, is_focused = is_focused }
             table.insert(notes_group, note_widget)
             if i == #page_indices then last_note_widget = note_widget end
             dedup_prev_title = note.book_title
