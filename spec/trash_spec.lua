@@ -82,10 +82,12 @@ local Trash = require("syncery_ui/trash/init")
 -- Store.list_deleted would tag it.
 -- ---------------------------------------------------------------------------
 
+
 local deleted_list = {}
 Trash._store.list_deleted = function() return deleted_list end
 Trash._store.load         = function() return { annotations = {} } end
 Trash._store.restore      = function() return true end
+Trash._store.restore_many = function(_, keys) return #keys end
 
 
 -- ---------------------------------------------------------------------------
