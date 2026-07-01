@@ -210,22 +210,34 @@ function Teardown.flush(plugin, ui_manager, util_now, logger, opts)
                 plugin:_doCloudUpload(state)
             end
 
-            -- Step 4: tell Syncthing to scan our file on the next tick.
-            -- The defer ensures Step 1's bytes are visible to the OS
-            -- before the scan walks the directory.
-            if ui_manager and ui_manager.nextTick then
-                ui_manager:nextTick(function()
-                    if not plugin:_isFileTypeSynced(state.file) then return end
-                    if not plugin.use_syncthing then return end
+            -- Step 4: tell Syncthing to scan our file.
+            local function trigger_scan(force)
+                if not plugin:_isFileTypeSynced(state.file) then return end
+                if not plugin.use_syncthing then return end
 
-                    -- The orchestrator's transport.is_available() handles
-                    -- "is daemon up?" so we no longer need a pre-flight
-                    -- KOSyncthingPlusAPI status.isRunning shortcut here.
-                    local ok, err = pcall(function() plugin:_doTriggerScan(state) end)
-                    if not ok then
-                        logger.warn("Syncery: deferred scan error: " .. tostring(err))
-                    end
+                -- The orchestrator's transport.is_available() handles "is daemon
+                -- up?" so we no longer need a pre-flight KOSyncthingPlusAPI
+                -- status.isRunning shortcut here.
+                local ok, err = pcall(function()
+                    plugin:_doTriggerScan(state, { force = force })
                 end)
+                if not ok then
+                    logger.warn("Syncery: deferred scan error: " .. tostring(err))
+                end
+            end
+
+            -- A DESTROYING flush runs the scan INLINE and FORCED: Step 5 below
+            -- shuts the transport down synchronously right after, so a nextTick
+            -- scan would fire post-shutdown (_shutdown=true) and be dropped; and
+            -- an earlier offline autosave may have left the book in_backoff with
+            -- Step 5 about to cancel that pending retry, so the policy must be
+            -- bypassed or the close-time scan is lost.  Step 1's _writeSave is
+            -- synchronous, so the bytes are already on disk here.  Non-destroying
+            -- (suspend/autosave): defer via nextTick as before, keeping backoff.
+            if opts.destroying then
+                trigger_scan(true)
+            elseif ui_manager and ui_manager.nextTick then
+                ui_manager:nextTick(function() trigger_scan(false) end)
             end
         end)
         if not flush_ok then

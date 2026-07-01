@@ -347,7 +347,7 @@ do
             or setup_body:find("self._transport:register_syncery_ignore_patterns") == nil,
             "regression gate: _setupKOSyncthingPlusIntegration does NOT call register (white-screen lag gone)")
 
-        local scan_body = body_of(src, "function Syncery:_doTriggerScan(state)")
+        local scan_body = body_of(src, "function Syncery:_doTriggerScan(state, opts)")
         h.assert_true(scan_body ~= nil,
             "regression gate: found _doTriggerScan body")
         -- The scan path MUST write .stignore (where suppression now happens).

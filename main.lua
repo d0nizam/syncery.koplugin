@@ -2225,7 +2225,9 @@ function Syncery:_syncthingFolderConfigured()
         Settings.get_syncthing_folder())
 end
 
-function Syncery:_doTriggerScan(state)
+-- opts.force (terminal close-push): bypass the orchestrator's debounce/backoff
+-- so the last-chance scan before transport shutdown isn't dropped as in_backoff.
+function Syncery:_doTriggerScan(state, opts)
     if not self.use_syncthing then return end
     if not self._transport then return end
     if not self:_syncthingFolderConfigured() then return end
@@ -2244,7 +2246,8 @@ function Syncery:_doTriggerScan(state)
     -- Folder config now comes from `Settings.get_syncthing_folder`
     -- via `_getScanTarget`'s nil-cfg branch.
     local folder_id, sub_dir = self:_getScanTarget(state.file, nil)
-    self._transport:push_syncthing_scan(state.file, { sub = sub_dir })
+    self._transport:push_syncthing_scan(state.file,
+        { sub = sub_dir, force = opts and opts.force })
 
     -- Conflict-file suppression rides along here (NOT at startup).  We write
     -- Syncthing's `.stignore` at the folder root so conflict copies don't

@@ -85,7 +85,9 @@ end
 
 --- Trigger a Syncthing scan for the given book.
 ---@param book_file string
----@param opts table|nil   { sub = "<relative path within folder>" }
+---@param opts table|nil   { sub = "<relative path within folder>",
+---                          force = bool — bypass debounce/backoff (terminal
+---                          close-push scan: last chance before shutdown) }
 function Bridge:push_syncthing_scan(book_file, opts)
     opts = opts or {}
     -- Only Syncthing reads `sub`; Cloud ignores it.  We still send
@@ -98,7 +100,11 @@ function Bridge:push_syncthing_scan(book_file, opts)
     -- That's fine semantically (a Syncthing scan IS only addressed
     -- to Syncthing) but produces a small amount of bookkeeping for
     -- the non-Syncthing transports.  Acceptable.
-    self._orch:push_book(book_file, { sub = opts.sub })
+    -- A forced scan must force ONLY Syncthing: push_book fans out to every
+    -- transport, and forcing this nil-payload call onto Cloud would REJECT and
+    -- clobber a just-sent cloud upload's status.  Scope force to the syncthing tid.
+    local caller = opts.force and { force = { syncthing = true } } or nil
+    self._orch:push_book(book_file, { sub = opts.sub }, caller)
 end
 
 

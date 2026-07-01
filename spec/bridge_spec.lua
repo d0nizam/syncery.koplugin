@@ -102,6 +102,39 @@ end
 
 
 -- ----------------------------------------------------------------------------
+-- K: a forced scan scopes force to the Syncthing tid ONLY — never a bare `true`
+-- that would also force the nil-payload push onto Cloud (REJECTED, clobbering a
+-- just-sent cloud upload's status).  No force requested -> no caller force.
+-- ----------------------------------------------------------------------------
+
+
+do
+    local fake = make_fake_orch()
+    local bridge = Bridge.new({ orchestrator = fake.orch })
+
+    bridge:push_syncthing_scan("/books/x.epub", { sub = "s/x", force = true })
+
+    local c = fake.calls[1].caller_opts
+    h.assert_true(type(c) == "table" and type(c.force) == "table",
+        "force forwarded as a tid-set, not a bare true")
+    h.assert_true(c.force.syncthing == true, "syncthing tid forced")
+    h.assert_nil(c.force.cloud, "cloud NOT forced (no REJECTED clobber)")
+end
+
+
+do
+    local fake = make_fake_orch()
+    local bridge = Bridge.new({ orchestrator = fake.orch })
+
+    bridge:push_syncthing_scan("/books/x.epub", { sub = "s/x" })   -- no force
+
+    local c = fake.calls[1].caller_opts
+    h.assert_true(c == nil or c.force == nil,
+        "no force requested -> no caller force (normal policy applies)")
+end
+
+
+-- ----------------------------------------------------------------------------
 -- push_cloud_files: one push_book per entry; BOTH entries force-bypass
 -- the per-book debounce (progress + annotations are distinct files that
 -- must each upload on every push — the per-book debounce cannot tell

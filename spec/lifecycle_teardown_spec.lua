@@ -57,7 +57,9 @@ local function make_fake_plugin(opts)
         record("_syncBookViaOrchestrator", state)
     end
     function plugin:_doCloudUpload(state)   record("_doCloudUpload",   state) end
-    function plugin:_doTriggerScan(state)   record("_doTriggerScan",   state) end
+    function plugin:_doTriggerScan(state, scan_opts)
+        record("_doTriggerScan", state, scan_opts)
+    end
     function plugin:_isFileTypeSynced(file)
         record("_isFileTypeSynced", file)
         return self._file_type_synced
@@ -629,6 +631,37 @@ do
 
     h.assert_nil(plugin._pending_anns,
         "destroying flush is nil-safe when no merged_state is returned")
+end
+
+
+-- The terminal (destroying) Syncthing scan is FORCED and runs INLINE (before the
+-- Step 5 shutdown), so an offline autosave's pending retry can't make Step 5 drop
+-- the close-time scan.
+do
+    local plugin = make_fake_plugin{}
+    local ui     = make_fake_uimgr()
+
+    Teardown.flush(plugin, ui, fixed_now, nil, { destroying = true })
+
+    local c = plugin:called("_doTriggerScan")
+    h.assert_true(c ~= nil, "destroying flush triggered the scan")
+    h.assert_true(c.args[2] ~= nil and c.args[2].force == true,
+        "terminal scan forced (bypasses debounce/backoff)")
+end
+
+
+-- The deferred (non-destroying) scan keeps normal backoff — only the terminal
+-- scan bypasses policy.
+do
+    local plugin = make_fake_plugin{}
+    local ui     = make_fake_uimgr()   -- default nextTick fires synchronously
+
+    Teardown.flush(plugin, ui, fixed_now, nil, {})   -- suspend/autosave
+
+    local c = plugin:called("_doTriggerScan")
+    h.assert_true(c ~= nil, "non-destroying scan ran")
+    h.assert_true(c.args[2] == nil or c.args[2].force ~= true,
+        "deferred scan NOT forced (keeps normal debounce/backoff)")
 end
 
 

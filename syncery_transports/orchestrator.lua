@@ -232,9 +232,14 @@ end
 --- @param book_file string         absolute path to the book
 --- @param opts table|nil           passed verbatim to each transport's push
 --- @param caller_opts table|nil    options the orchestrator itself reads:
----                                   force = bool   — bypass debounce/backoff
----                                                     checks (used for the
----                                                     "Sync Now" menu item)
+---                                   force = bool | table  — bypass debounce/
+---                                     backoff.  `true` forces ALL transports
+---                                     (the "Sync Now" hatch); a set {[tid]=true}
+---                                     forces ONLY those — so a terminal Syncthing
+---                                     scan can bypass policy for Syncthing without
+---                                     also forcing its nil payload onto Cloud
+---                                     (which would REJECT and clobber a just-sent
+---                                     cloud upload's status).
 function Orchestrator:push_book(book_file, opts, caller_opts)
     if self._shutdown then
         log.warn("push_book after shutdown; ignoring")
@@ -242,6 +247,12 @@ function Orchestrator:push_book(book_file, opts, caller_opts)
     end
     caller_opts = caller_opts or {}
     local now = self._clock()
+
+    local force = caller_opts.force
+    local function _forced(tid)
+        if force == true then return true end
+        return type(force) == "table" and force[tid] == true
+    end
 
     for _, transport in ipairs(self._transports) do
         local tid = transport.id()
@@ -255,7 +266,7 @@ function Orchestrator:push_book(book_file, opts, caller_opts)
             local config = Policy.config_for(tid, self._policy_config)
 
             local proceed, reason = true, nil
-            if not caller_opts.force then
+            if not _forced(tid) then
                 proceed, reason = Policy.should_attempt(state, now, config)
             end
 
