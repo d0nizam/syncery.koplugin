@@ -160,6 +160,32 @@ do
         "compose: still no 'Backend:' line even on fallback")
 end
 
+do
+    -- No backend at all: the header must use the translated "no backend"
+    -- label, not the raw state token — and there must be no contradictory
+    -- "using built-in cloud sync" fallback note (the transport suppresses
+    -- provider_fell_back when state is no_backend).
+    local plugin = menu_support.make_fake_plugin{
+        use_cloud = true,
+        _transport = menu_support.make_fake_transport({
+            cloud = {
+                display_name        = "Cloud",
+                available           = false,
+                summary             = "no cloud backend available (enable \"Cloud storage+\")",
+                backend_unavailable = true,
+                cloud_provider      = "syncservice",
+            },
+        }),
+    }
+    local body = Panel.compose(plugin, "cloud")
+    h.assert_true(body:find("Cloud — no backend", 1, true) ~= nil,
+        "compose: header maps no_backend to the translated label")
+    h.assert_false(body:find("no_backend", 1, true) ~= nil,
+        "compose: raw no_backend token never shown")
+    h.assert_false(body:find("using built-in cloud sync", 1, true) ~= nil,
+        "compose: no fallback note in the no-backend state")
+end
+
 
 -- ---------------------------------------------------------------------------
 -- compose — no backend line for non-cloud transports

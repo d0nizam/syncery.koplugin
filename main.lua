@@ -3198,7 +3198,17 @@ function Syncery:resolveStatusProblem()
     if problem_id == "syncthing" then
         require("syncery_ui/menu/transport_section").showSyncthingWizard(self)
     elseif problem_id == "cloud" then
-        require("syncery_ui/menu/transport_section").pickCloudDestination(self)
+        local H = require("syncery_ui/menu/_helpers")
+        if H.transport_state(H.status_snapshot(self), "cloud") == "no_backend" then
+            -- Re-picking the destination can't fix a MISSING cloud backend
+            -- (no "Cloud storage+" and no built-in syncservice) — point the user
+            -- at enabling one instead of the destination picker.
+            UIManager:show(InfoMessage:new{
+                text = _("No cloud backend is available.\n\nEnable the \"Cloud storage+\" plugin (or use a KOReader build with the built-in sync service) so this destination can sync."),
+            })
+        else
+            require("syncery_ui/menu/transport_section").pickCloudDestination(self)
+        end
     else
         -- No actionable problem (shouldn't happen — the row is disabled
         -- in that case).  Fall back to the status detail rather than no-op.

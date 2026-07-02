@@ -149,6 +149,8 @@ function Panel.compose(plugin, transport_id)
     local state_label = ({
         disabled     = _("disabled"),
         needs_config = _("needs setup"),
+        no_backend   = _("no backend"),
+        unsupported  = _("unsupported"),
         syncing      = _("retrying"),
         error        = _("error"),
         ready        = _("ready"),

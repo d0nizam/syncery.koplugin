@@ -170,6 +170,7 @@ end
 do
     local t = Transport.new({
         settings_reader = settings_for(valid_settings()),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_true(t.is_available(), "all conditions met → available")
 end
@@ -190,6 +191,59 @@ do
     })
     h.assert_false(t.is_available(),
         "is_available follows use_cloud=false, ignoring a stale sync_via_cloud=true (collapse)")
+end
+
+
+-- ----------------------------------------------------------------------------
+-- Canonical state enum: ONE verdict in status(), every other field derives
+-- from it.  disabled | no_server | no_backend | unsupported | ready.
+-- ----------------------------------------------------------------------------
+
+
+do  -- disabled
+    local t = Transport.new({ settings_reader = settings_for({}),
+        select_provider = make_fake_provider().selector })
+    h.assert_equal(t.status().state, "disabled", "state: toggle off -> disabled")
+end
+
+do  -- no_server
+    local t = Transport.new({ settings_reader = settings_for({ syncery_use_cloud = true }),
+        select_provider = make_fake_provider().selector })
+    h.assert_equal(t.status().state, "no_server", "state: no destination -> no_server")
+end
+
+do  -- no_backend: server picked, provider reports unavailable
+    local t = Transport.new({ settings_reader = settings_for(valid_settings()),
+        select_provider = function()
+            return { provider = {
+                id                 = function() return "syncservice" end,
+                is_available       = function() return false end,
+                syncable_providers = function() return { dropbox = true, webdav = true } end,
+            }, active_id = "syncservice", fell_back = true }
+        end })
+    local s = t.status()
+    h.assert_equal(s.state, "no_backend", "state: server picked, no backend -> no_backend")
+    h.assert_true(s.backend_unavailable == true, "no_backend derives backend_unavailable")
+    h.assert_nil(s.unsupported_provider, "no_backend suppresses unsupported (precedence)")
+    h.assert_false(s.available, "no_backend derives available=false")
+end
+
+do  -- unsupported: ftp, available provider that can't sync ftp
+    local t = Transport.new({ settings_reader = settings_for({
+        syncery_use_cloud = true, syncery_cloud_server = { type = "ftp", kind = "ftp" } }),
+        select_provider = make_fake_provider().selector })
+    local s = t.status()
+    h.assert_equal(s.state, "unsupported", "state: ftp on syncservice -> unsupported")
+    h.assert_true(s.unsupported_provider == true, "unsupported derives its flag")
+    h.assert_nil(s.backend_unavailable, "unsupported is not backend_unavailable")
+end
+
+do  -- ready
+    local t = Transport.new({ settings_reader = settings_for(valid_settings()),
+        select_provider = make_fake_provider().selector })
+    local s = t.status()
+    h.assert_equal(s.state, "ready", "state: all good -> ready")
+    h.assert_true(s.available, "ready derives available=true")
 end
 
 
@@ -437,7 +491,10 @@ end
 
 
 do
-    local t = Transport.new({ settings_reader = settings_for(valid_settings()) })
+    local t = Transport.new({
+        settings_reader = settings_for(valid_settings()),
+        select_provider = make_fake_provider().selector,
+    })
     h.assert_true(t.status().available, "available when toggled + server set")
     for _, cap in pairs(Interface.CAPABILITIES) do
         h.assert_false(t.supports(cap),
@@ -460,17 +517,21 @@ do
             syncery_use_cloud = true,
             syncery_cloud_server   = { type = "webdav", kind = "webdav" },
         }),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_true(t.is_available(), "webdav provider is syncable")
 end
 
 do
-    -- ftp is browsable but NOT syncable -> unavailable + clear status.
+    -- ftp is browsable but NOT syncable -> unavailable + clear status.  Inject an
+    -- AVAILABLE provider (syncable = dropbox/webdav, no ftp) so state resolves to
+    -- "unsupported", not "no_backend".
     local t = Transport.new({
         settings_reader = settings_for({
             syncery_use_cloud = true,
             syncery_cloud_server   = { type = "ftp", kind = "ftp" },
         }),
+        select_provider = make_fake_provider().selector,
     })
     h.assert_false(t.is_available(), "ftp provider is NOT syncable -> unavailable")
     local s = t.status()
@@ -603,10 +664,23 @@ do
     local s = t.status()
     h.assert_false(s.available, "ftp + cloudstorage-absent: transport unavailable")
     h.assert_equal(s.cloud_provider, "syncservice", "fell back to the syncservice backend")
-    h.assert_true(s.provider_fell_back == true,
-        "fallback flagged (chosen cloudstorage backend is absent)")
-    h.assert_true(s.unsupported_provider == true,
-        "syncservice cannot sync ftp → unsupported_provider flagged")
+    -- The fallback note is only claimed when the fallback backend actually
+    -- works: here the syncservice can't load either (state=no_backend), so
+    -- provider_fell_back must NOT tell the status panel "using built-in
+    -- cloud sync" alongside the no-backend verdict.
+    h.assert_nil(s.provider_fell_back,
+        "fell_back suppressed when the fallback backend itself is unusable")
+    -- With the canonical state, "no backend available" takes precedence over
+    -- "unsupported": in-harness the syncservice fallback can't load, so there is
+    -- no working backend at all -> state=no_backend (backend_unavailable), which
+    -- is the more actionable verdict (install/enable a backend) than "ftp
+    -- unsupported".  (In production, with syncservice present, the same ftp server
+    -- would resolve to state=unsupported.)
+    h.assert_equal(s.state, "no_backend",
+        "no working backend in-harness → state=no_backend (precedes unsupported)")
+    h.assert_true(s.backend_unavailable == true, "backend_unavailable flag set")
+    h.assert_nil(s.unsupported_provider,
+        "unsupported suppressed when there is no backend at all")
 end
 
 

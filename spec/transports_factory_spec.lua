@@ -118,8 +118,9 @@ end
 
 -- ----------------------------------------------------------------------------
 -- Phase 19: without a resolver, a cloudstorage choice falls back to syncservice
--- (the wiring is opt-in; nil resolver is safe). FTP isn't syncable on
--- syncservice, so the cloud is unavailable and the fallback is flagged.
+-- (the wiring is opt-in; nil resolver is safe). In-harness the syncservice
+-- can't load either, so the verdict is no_backend and the fallback note is
+-- suppressed rather than flagged (it only appears when the fallback works).
 -- ----------------------------------------------------------------------------
 
 
@@ -141,8 +142,13 @@ do
 
     h.assert_equal(s.cloud.cloud_provider, "syncservice",
         "no resolver → cloudstorage unavailable → fell back to syncservice")
-    h.assert_true(s.cloud.provider_fell_back == true,
-        "fallback flagged when the chosen cloudstorage backend is unreachable")
+    -- In-harness the syncservice fallback can't load either → no working
+    -- backend at all, so the fell_back note is suppressed (it would
+    -- contradict the no_backend verdict in the status panel).
+    h.assert_equal(s.cloud.state, "no_backend",
+        "no resolver + unloadable syncservice → state=no_backend")
+    h.assert_nil(s.cloud.provider_fell_back,
+        "fell_back suppressed when the fallback backend itself is unusable")
     h.assert_false(s.cloud.available,
         "syncservice can't sync ftp → cloud unavailable")
 end

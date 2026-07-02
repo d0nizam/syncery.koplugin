@@ -95,11 +95,17 @@ local function compose_aux_badge(plugin, snapshot)
     local function aux(toggle, id, configured, label)
         if not toggle then return end
         local s = snapshot[id]
+        -- A server is picked but NO cloud backend can dispatch it (neither
+        -- "Cloud storage+" nor the built-in syncservice).  Distinct from — and
+        -- takes precedence over — "unsupported": the fix is to enable a backend,
+        -- not to re-pick the destination.
+        if s and s.backend_unavailable then
+            table.insert(parts, string.format(_("%s: no backend"), label))
         -- A picked-but-unsupported provider (e.g. FTP, which SyncService
         -- can't sync) reads as configured() but is NOT available. Without
         -- this branch it would fall through to "idle" and look fine, which
         -- is exactly the silent no-op F1 closes. Show it distinctly.
-        if s and s.unsupported_provider then
+        elseif s and s.unsupported_provider then
             table.insert(parts, string.format(_("%s: unsupported provider"), label))
         elseif not configured then
             table.insert(parts, string.format(_("%s: not set"), label))
