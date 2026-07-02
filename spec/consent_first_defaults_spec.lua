@@ -92,3 +92,13 @@ do
     h.assert_equal(default_for("syncery_use_cloud"), "false",
         "consent: Cloud transport defaults OFF")
 end
+
+
+-- Close-push waking Wi-Fi is opt-in: never bring the radio up behind the user's
+-- back without an explicit choice.
+do
+    h.assert_equal(default_for("syncery_wake_wifi_for_sync"), "false",
+        "consent: wake-Wi-Fi-on-close defaults OFF")
+    h.assert_equal(default_for("syncery_wake_wifi_on_suspend"), "false",
+        "consent: wake-Wi-Fi-on-sleep defaults OFF")
+end

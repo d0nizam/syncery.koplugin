@@ -576,6 +576,7 @@ local PREFERENCE_KEYS = {
     "syncery_sync_extensions",
     -- behaviour / display
     "syncery_jump_mode", "syncery_adapt_highlight_style",
+    "syncery_wake_wifi_for_sync", "syncery_wake_wifi_on_suspend",
     -- storage + diagnostics
     "syncery_storage_mode",
     "syncery_tombstone_ttl_days", "syncery_progress_freshness_days",
@@ -800,6 +801,13 @@ function Syncery:init()
         self.sync_bookmarks        = read_bool("syncery_sync_bookmarks",        true)
         self.use_syncthing         = read_bool("syncery_use_syncthing",         false)
         self.use_cloud             = read_bool("syncery_use_cloud",             false)
+        -- Opt-in close-push: bring Wi-Fi up at a terminal flush (close/quit) so
+        -- the offline push isn't silently dropped.  OFF by default.
+        self.wake_wifi_for_sync    = read_bool("syncery_wake_wifi_for_sync",    false)
+        -- Opt-in suspend-push: bring Wi-Fi up on sleep too (non-blocking, like
+        -- KOSync).  Separate from close because sleep fires automatically and
+        -- often, so its battery cost is the user's call.  OFF by default.
+        self.wake_wifi_on_suspend  = read_bool("syncery_wake_wifi_on_suspend",  false)
         -- Trigger-only sync of the sibling Statistics / Vocabulary plugins.
         -- These live fields back the What's-synced toggles; syncery_db_sync
         -- reads the matching G_reader_settings keys (which the toggles persist).
@@ -2225,6 +2233,38 @@ function Syncery:_syncthingFolderConfigured()
         Settings.get_syncthing_folder())
 end
 
+-- True when the ACTIVE, WORKING cloud transport could actually push.  Cloud
+-- only: the wake is justified by a client-server push (an offline push's retry
+-- is cancelled by shutdown, so the state may never leave the device) — Syncthing
+-- is peer-to-peer + daemon-backed and out of scope.
+--
+-- We gate on the transport's OWN availability (master toggle on + a server
+-- picked + the ACTIVE provider can sync that server type — e.g. FTP needs the
+-- "Cloud storage+" backend; the syncservice fallback can't), NOT on the bare
+-- `is_cloud_configured` ("a URL exists").  Otherwise a syntactically-configured
+-- but unsyncable destination (FTP while Cloud storage+ is unavailable) would
+-- raise the radio at close/sleep for a push that can never dispatch.  This is
+-- config/syncability only — NOT network reachability (offline is exactly when
+-- the wake matters).
+function Syncery:_hasConfiguredTransportForWakePush()
+    if not self.use_cloud then return false end
+    -- No transport object at all (headless / tests): fall back to the config
+    -- check so those environments behave as before.
+    if not self._transport or type(self._transport.get_status) ~= "function" then
+        return Settings.is_cloud_configured() and true or false
+    end
+    -- A transport EXISTS: use its own availability verdict, and FAIL CLOSED if it
+    -- can't be read (codex).  A cloud transport that raised in the factory is
+    -- skipped and never appears in get_status(); a stale/errored status likewise
+    -- has no cloud entry.  In either case there is nothing that can dispatch the
+    -- push, so waking Wi-Fi buys nothing — return false rather than fall back to
+    -- bare `is_cloud_configured`.
+    local ok, statuses = pcall(self._transport.get_status, self._transport)
+    if not ok or type(statuses) ~= "table" then return false end
+    local cloud = statuses.cloud
+    return type(cloud) == "table" and cloud.available == true
+end
+
 -- opts.force (terminal close-push): bypass the orchestrator's debounce/backoff
 -- so the last-chance scan before transport shutdown isn't dropped as in_backoff.
 function Syncery:_doTriggerScan(state, opts)
@@ -3097,6 +3137,84 @@ function Syncery:_isNetworkOnline()
         return true
     end
     return NetworkMgr:isConnected() and true or false
+end
+
+-- Bring the network up and run `cb` once online, BLOCKING until then (KOSync's
+-- goOnlineToRun close-push pattern).  Returns true if cb ran, false if the link
+-- couldn't be raised (cb then NOT run) so the caller can fall back.  Wrapped here
+-- so teardown needs no NetworkMgr require and tests can stub it.
+function Syncery:_goOnlineToRun(cb)
+    local ok, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok or not NetworkMgr
+            or type(NetworkMgr.goOnlineToRun) ~= "function" then
+        return false
+    end
+    return NetworkMgr:goOnlineToRun(cb) and true or false
+end
+
+-- Lower Wi-Fi again after a wake-push that WE raised it for (KOSync's suspend
+-- parity, kosync.koplugin/main.lua onSuspend).  Only meaningful on a sleep and
+-- only on hasWifiManager devices (Kobo/Cervantes/Sony), which "horribly implode"
+-- if suspended with the Wi-Fi chip on; KOReader kills Wi-Fi before the Suspend
+-- broadcast for exactly this reason, and our blocking goOnlineToRun re-raised it.
+-- The caller gates on suspend + we-actually-raised-Wi-Fi + a SYNCHRONOUS push
+-- (see _isWifiOn / _isCloudPushSynchronous); this method gates on the device.
+-- No-op off desktop/headless and on devices without a WifiManager (e.g. Kindle).
+-- Wrapped here so teardown needs no Device/NetworkMgr require and tests can stub
+-- it.  Returns true iff Wi-Fi was actually lowered.
+function Syncery:_lowerWifiAfterWakePush()
+    local ok_d, Device = pcall(require, "device")
+    if not ok_d or not Device or type(Device.hasWifiManager) ~= "function"
+            or not Device:hasWifiManager() then
+        return false
+    end
+    local ok, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok or not NetworkMgr
+            or type(NetworkMgr.disableWifi) ~= "function" then
+        return false
+    end
+    NetworkMgr:disableWifi()
+    -- goOnlineToRun set NetworkMgr.wifi_was_on = true when it raised the radio.
+    -- disableWifi() (no interactive flag) turns Wi-Fi off but leaves that state
+    -- true, so KOReader's auto_restore_wifi would bring Wi-Fi back on the next
+    -- resume/startup — undoing the OFF state we just restored for the user.
+    -- Clear it (we raised this Wi-Fi, so we own the restore).
+    NetworkMgr.wifi_was_on = false
+    local grs = rawget(_G, "G_reader_settings")
+    if grs and type(grs.makeFalse) == "function" then
+        pcall(function() grs:makeFalse("wifi_was_on") end)
+    end
+    return true
+end
+
+-- Is the Wi-Fi RADIO currently on (not merely "connected")?  Lets the wake path
+-- tell "we turned the radio on for this push" (was off, we raised it -> we may
+-- lower it) from "the user already had Wi-Fi on" (leave it).  Distinct from
+-- _isNetworkOnline (isConnected).  Fails CLOSED (returns true = "was on, don't
+-- touch") when it can't tell, so we never disable Wi-Fi we're unsure about.
+function Syncery:_isWifiOn()
+    local ok, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok or not NetworkMgr or type(NetworkMgr.isWifiOn) ~= "function" then
+        return true
+    end
+    return NetworkMgr:isWifiOn() and true or false
+end
+
+-- Does the ACTIVE cloud provider transfer SYNCHRONOUSLY?  Only the built-in
+-- syncservice does (the whole download/merge/upload runs inside
+-- SyncService.sync).  The default "Cloud storage+" provider is fire-and-forget
+-- (Cloud:sync defers the transfer via UIManager:nextTick), so there is NO
+-- completion signal -- anything that must run "after the push finished" (e.g.
+-- lowering Wi-Fi) cannot be timed on it and would cut the transfer mid-flight.
+-- Fails CLOSED (false = "treat as async, don't lower Wi-Fi").
+function Syncery:_isCloudPushSynchronous()
+    if not self._transport or type(self._transport.get_status) ~= "function" then
+        return false
+    end
+    local ok, statuses = pcall(self._transport.get_status, self._transport)
+    if not ok or type(statuses) ~= "table" then return false end
+    local cloud = statuses.cloud
+    return type(cloud) == "table" and cloud.cloud_provider == "syncservice"
 end
 
 -- ----------------------------------------------------------------------------

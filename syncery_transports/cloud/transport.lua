@@ -228,6 +228,14 @@ function Transport.new(opts)
     --- server is picked AND that server is syncable on this provider.
     local function is_available_with(provider)
         if not settings_reader(TOGGLE_KEY) then return false end
+        -- A real backend must exist to dispatch (codex): the resolver returns the
+        -- fallback provider even when NEITHER "Cloud storage+" nor the built-in
+        -- syncservice is present, and server_is_syncable only checks the server
+        -- TYPE against the provider's syncable set — so without this, a syntactic
+        -- Dropbox/WebDAV destination reports available=true on a build with no
+        -- cloud backend, and a wake-push would raise Wi-Fi for a push that can
+        -- never dispatch.  Require the provider to actually report available.
+        if not (provider and provider.is_available()) then return false end
         local server = settings_reader(KEY_SERVER)
         return server_is_syncable(server, provider)
     end
@@ -419,6 +427,12 @@ function Transport.new(opts)
             toggle_on
             and type(server) == "table"
             and not server_is_syncable(server, provider)
+        -- NOTE: distinguishing "no cloud backend available at all" from
+        -- "unsupported provider" / "no server picked", and surfacing it in the
+        -- status UI, is deferred to a dedicated cloud-state refactor PR (a single
+        -- canonical `state` enum computed here, consumed everywhere) — see the PR
+        -- discussion.  This PR keeps only the is_available_with backend check so
+        -- the wake gate's `available` is honest.
         local summary
         if not available then
             if not toggle_on then

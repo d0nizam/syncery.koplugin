@@ -13,5 +13,8 @@ __pycache__/
 # Development copies (pristine baselines / diffs)
 *.pristine
 
+# Editor/linter scratch copies (e.g. foo.lua.tmp.NNNN.hash) — never committed
+*.tmp.*
+
 # Test artifact recreated by the spec runner (never committed)
 /syncery/

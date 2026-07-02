@@ -262,14 +262,20 @@ end
 -- ---------------------------------------------------------------------------
 
 
--- menuCloudConfig returns 4 rows now that the backend picker is gone:
--- Destination, Clear destination, Upload delay, Check cloud settings.  There is
--- ONE cloud backend (the "Cloud storage+" plugin) with an invisible
+-- menuCloudConfig with NO destination configured (default stub): 4 cloud config
+-- rows only — Destination, Clear destination, Upload delay, Check cloud settings.
+-- codex 552: the two opt-in wake-push toggles are HIDDEN until a destination is
+-- set (the wake gate no-ops without one, so a visible toggle would be dead).
+-- There is ONE cloud backend (the "Cloud storage+" plugin) with an invisible
 -- syncservice fallback — no picker, no "Sync backend:" row.
 do
     local plugin = menu_support.make_fake_plugin{}
     local rows = T.menuCloudConfig(plugin)
-    h.assert_equal(#rows, 4, "menuCloudConfig: 4 rows (no backend picker)")
+    h.assert_equal(#rows, 4, "menuCloudConfig: 4 rows when no destination (wake toggles hidden)")
+    h.assert_nil(menu_support.find_row(rows, "Wake Wi-Fi for cloud push on close"),
+        "552: close wake toggle hidden until a cloud destination exists")
+    h.assert_nil(menu_support.find_row(rows, "Wake Wi-Fi for cloud push on sleep"),
+        "552: sleep wake toggle hidden until a cloud destination exists")
 
     -- U18: the cloud config-check row is labelled "Check cloud settings", not
     -- "Test connection" — the cloud check does NO network probe (only
@@ -790,4 +796,27 @@ do
     -- No plugin, but the built-in syncservice injected -> fallback is available.
     h.assert_true(T.cloud_backend_available({}, { sync = function() end }),
         "cloud_backend_available: true via the built-in syncservice fallback")
+end
+
+
+-- codex 552 (positive): with a cloud DESTINATION configured, the two wake toggles
+-- DO appear under Cloud settings.  Reload transport_section against a stub whose
+-- is_cloud_configured() is true.  Runs LAST so the reinstall can't affect earlier
+-- blocks.
+do
+    package.loaded["syncery_ui/menu/transport_section"] = nil
+    package.loaded["syncery_settings"]                  = nil
+    menu_support.install_stubs({ settings = {
+        is_cloud_configured   = true,
+        describe_cloud_server = "webdav://example",
+    } })
+    local T2     = require("syncery_ui/menu/transport_section")
+    local plugin = menu_support.make_fake_plugin{}
+    local rows   = T2.menuCloudConfig(plugin)
+
+    h.assert_equal(#rows, 6, "552: destination set -> 6 rows (4 config + 2 wake toggles)")
+    h.assert_true(menu_support.find_row(rows, "Wake Wi-Fi for cloud push on close") ~= nil,
+        "552: close wake toggle shown when a destination is configured")
+    h.assert_true(menu_support.find_row(rows, "Wake Wi-Fi for cloud push on sleep") ~= nil,
+        "552: sleep wake toggle shown when a destination is configured")
 end

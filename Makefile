@@ -36,7 +36,7 @@ RUNTIME = _meta.lua main.lua insert_menu.lua LICENSE \
 PUBLIC_EXTRA = README.md SETUP.md CHANGELOG.md Makefile .gitignore .github assets spec tools
 
 # Defensive nested-junk excludes (the allowlist already omits the private docs).
-ZIP_EXCLUDES = -x '*/__pycache__/*' -x '*.pyc' -x '*.pristine' \
+ZIP_EXCLUDES = -x '*/__pycache__/*' -x '*.pyc' -x '*.pristine' -x '*.tmp.*' \
                -x 'syncery/*' -x '*/syncery/*' -x '$(STAGE)/*' -x '*.zip'
 
 .PHONY: build build-full clean
