@@ -102,6 +102,25 @@ do
 end
 
 
+-- A picked server with NO cloud backend reads as "no backend" (enable one),
+-- distinct from and ahead of "unsupported" / "idle".
+do
+    menu_support.install_stubs{ settings = { is_cloud_configured = true } }
+    package.loaded["syncery_ui/status_section"] = nil
+    local SS = require("syncery_ui/status_section")
+    local plugin = menu_support.make_fake_plugin{
+        use_syncthing = false, use_cloud = true,
+        _transport = menu_support.make_fake_transport({
+            cloud = { display_name = "Cloud", available = false,
+                      summary = "no cloud backend available (enable \"Cloud storage+\")",
+                      backend_unavailable = true, provider_type = "webdav" },
+        }),
+    }
+    h.assert_equal(SS.compose_badge(plugin), "cloud: no backend",
+        "compose_badge: no backend reads distinctly, not 'idle' or 'unsupported'")
+end
+
+
 -- Cloud badge composes a single ' · ' fragment when only cloud is on.
 do
     menu_support.install_stubs{ settings = { is_cloud_configured = true } }

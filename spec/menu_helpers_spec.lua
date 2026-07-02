@@ -169,6 +169,18 @@ do
 end
 
 
+-- Canonical state: a picked server with NO cloud backend → "no_backend",
+-- distinct from and taking precedence over "unsupported" (install/enable a
+-- backend, don't re-pick the destination).
+do
+    local snap = { cloud = { available = false,
+                             summary = "no cloud backend available (enable \"Cloud storage+\")",
+                             backend_unavailable = true } }
+    h.assert_equal(H.transport_state(snap, "cloud"),
+        "no_backend", "backend_unavailable flag → 'no_backend'")
+end
+
+
 -- Available + pending retry → "syncing" (the retry wins over error
 -- since it's the more recent state).
 do

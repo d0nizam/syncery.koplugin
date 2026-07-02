@@ -495,8 +495,14 @@ function H.transport_state(snapshot, transport_id)
     if not s.available then
         local summary = s.summary or ""
         if summary:match("disabled") then return "disabled" end
-        -- Structured flag, not a summary-string match: a picked-but-
-        -- unsupported provider is distinct from "nothing configured".
+        -- Structured flags (from the cloud transport's canonical `state`), not
+        -- summary-string matches.  Order mirrors the state precedence:
+        --   no_backend  — a server is picked but NO cloud backend can dispatch it
+        --                 (install/enable "Cloud storage+") — distinct from and
+        --                 takes precedence over "unsupported".
+        --   unsupported — a backend exists but can't sync this server type (FTP).
+        -- Anything else with a server set is "nothing (fully) configured".
+        if s.backend_unavailable then return "no_backend" end
         if s.unsupported_provider then return "unsupported" end
         return "needs_config"
     end

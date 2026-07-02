@@ -668,6 +668,7 @@ local function format_transport_state(state)
     if state == "error"        then return _("error")              end
     if state == "disabled"     then return _("off")                end
     if state == "unsupported"  then return _("unsupported")        end
+    if state == "no_backend"   then return _("no backend")         end
     return state or "?"
 end
 

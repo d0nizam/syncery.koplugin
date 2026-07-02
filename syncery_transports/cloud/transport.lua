@@ -223,13 +223,32 @@ function Transport.new(opts)
         return type(syncable) == "table" and syncable[server.type] == true
     end
 
-    --- Availability against an ALREADY-RESOLVED provider (so callers that
-    --- have the selection in hand don't re-resolve).  Toggle on AND a
-    --- server is picked AND that server is syncable on this provider.
-    local function is_available_with(provider)
-        if not settings_reader(TOGGLE_KEY) then return false end
+    --- CANONICAL cloud state against an ALREADY-RESOLVED provider — the single
+    --- source of truth every consumer switches on, so no one re-derives
+    --- per-protocol/per-server nuances:
+    ---   "disabled"    — master toggle off
+    ---   "no_server"   — toggle on, no destination picked yet
+    ---   "no_backend"  — server picked, but NO cloud backend can dispatch it
+    ---                   (neither "Cloud storage+" nor the built-in syncservice
+    ---                   is present) — the fix is to install/enable a backend,
+    ---                   not to re-pick the destination
+    ---   "unsupported" — a backend IS present but can't sync THIS server type
+    ---                   (e.g. FTP on the built-in syncservice)
+    ---   "ready"       — enabled, server picked, and a backend can sync it
+    --- This is config/syncability only — NOT network reachability (a separate,
+    --- async concern handled by the reachability layer).
+    local function provider_state(provider)
+        if not settings_reader(TOGGLE_KEY) then return "disabled" end
         local server = settings_reader(KEY_SERVER)
-        return server_is_syncable(server, provider)
+        if type(server) ~= "table" then return "no_server" end
+        if not (provider and provider.is_available()) then return "no_backend" end
+        if not server_is_syncable(server, provider) then return "unsupported" end
+        return "ready"
+    end
+
+    --- Availability against an ALREADY-RESOLVED provider: ready iff state=="ready".
+    local function is_available_with(provider)
+        return provider_state(provider) == "ready"
     end
 
     function t.is_available()
@@ -404,48 +423,41 @@ function Transport.new(opts)
     end
 
     function t.status()
-        local sel       = resolve_provider()
-        local provider  = sel.provider
-        local available = is_available_with(provider)
-        local server    = settings_reader(KEY_SERVER)
-        local toggle_on = settings_reader(TOGGLE_KEY) and true or false
-        -- A provider was picked but the ACTIVE backend can't sync it
-        -- (e.g. FTP on syncservice). Surface this as a STRUCTURED flag so UI
-        -- consumers can distinguish "no server picked" from "picked but
-        -- unsupported" WITHOUT parsing the human summary string
-        -- (status_section / _helpers deliberately avoid re-parsing
-        -- summaries — see status_section.lua:105, _helpers.lua:458).
-        local unsupported_provider =
-            toggle_on
-            and type(server) == "table"
-            and not server_is_syncable(server, provider)
-        local summary
-        if not available then
-            if not toggle_on then
-                summary = "disabled (toggle off)"
-            elseif type(server) ~= "table" then
-                summary = "not configured (cloud server not picked)"
-            elseif unsupported_provider then
-                summary = string.format(
-                    "provider not supported for sync (%s); use Dropbox or WebDAV",
-                    tostring(server.type))
-            else
-                summary = "not configured (cloud server not picked)"
-            end
-        else
-            summary = "ready (uploads dispatched in background)"
-        end
+        local sel      = resolve_provider()
+        local provider = sel.provider
+        local server   = settings_reader(KEY_SERVER)
+        -- ONE canonical verdict; available / summary / the structured flags all
+        -- derive from it, so no consumer re-combines toggle/server/backend/
+        -- syncability itself.
+        local state    = provider_state(provider)
+        local summary  = ({
+            disabled    = "disabled (toggle off)",
+            no_server   = "not configured (cloud server not picked)",
+            no_backend  = "no cloud backend available (enable \"Cloud storage+\")",
+            unsupported = string.format(
+                "provider not supported for sync (%s); use Dropbox or WebDAV",
+                tostring(type(server) == "table" and server.type or "?")),
+            ready       = "ready (uploads dispatched in background)",
+        })[state]
         return {
             display_name        = "Cloud",
-            available           = available,
+            -- THE canonical state; new consumers switch on this.
+            state               = state,
+            available           = state == "ready",
             summary             = summary,
-            unsupported_provider = unsupported_provider or nil,
+            -- Back-compat structured flags, DERIVED from `state` so existing
+            -- consumers keep working; prefer switching on `state` going forward.
+            unsupported_provider = (state == "unsupported") or nil,
+            backend_unavailable  = (state == "no_backend") or nil,
             provider_type       = (type(server) == "table") and server.type or nil,
             -- The active cloud backend id, and whether the "Cloud storage+"
             -- plugin was unavailable so we fell back to the built-in
-            -- syncservice. Consumed by the status panel (fallback note only).
+            -- syncservice. Consumed by the status panel (fallback note only);
+            -- only claimed when the fallback backend actually works, so the
+            -- note can't contradict a no_backend verdict.
             cloud_provider      = sel.active_id,
-            provider_fell_back  = sel.fell_back or nil,
+            provider_fell_back  = (sel.fell_back and state ~= "no_backend")
+                                  or nil,
         }
     end
 
