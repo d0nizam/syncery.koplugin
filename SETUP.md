@@ -183,6 +183,15 @@ covers it in full; the short version:
 After this you have **one folder that replicates across all your devices**. That
 folder is what Syncery will write into.
 
+> **Warning (Syncery Storage mode specifically).** If you use **synceryhash**
+> storage mode, share the **`…/syncery/synceryhash/`** folder — **not** its
+> parent **`…/syncery/`** folder. The parent also holds `last_sync/`, a
+> per-device record each device needs to keep to itself for 3-way merging to
+> work; sharing the parent replicates `last_sync/` too, mixing one device's
+> private merge history into another's. Symptom: annotations/highlights
+> transfer, but each sync **replaces** the other device's content instead of
+> **merging** with it.
+
 > **Warning.** Don't point Syncthing at your whole KOReader settings folder or
 > home directory — syncing configuration files across devices can cause
 > problems (e.g. two devices ending up with the same Device ID).
