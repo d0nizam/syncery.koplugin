@@ -265,7 +265,38 @@ function M.install(zip_url, strip_root, new_version)
 
         -- Device:unpackArchive removes the archive on success; remove it on the
         -- failure path too.
-        local ok, err = Device:unpackArchive(zip_path, plugin_path(), strip_root)
+        local ok, err
+        if Device.unpackArchive then
+            ok, err = Device:unpackArchive(zip_path, plugin_path(), strip_root)
+        else
+            local Archiver = require("ffi/archiver")
+            local arc = Archiver.Reader:new()
+            ok = arc:open(zip_path)
+            if ok then
+                for entry in arc:iterate() do
+                    local dest_path = entry.path
+                    if strip_root then
+                        local _, tail = dest_path:match("([^/]*)/*(.*)")
+                        if tail then
+                            dest_path = tail
+                        elseif entry.mode == 'directory' then
+                            goto continue
+                        end
+                    end
+                    if not arc:extractToPath(entry.path, plugin_path() .. "/" .. dest_path) then
+                        break
+                    end
+                    ::continue::
+                end
+                ok = not arc.err
+            end
+            if ok then
+                pcall(os.remove, zip_path)
+            else
+                err = tostring(arc.err or "unknown error")
+            end
+            arc:close()
+        end
         pcall(os.remove, zip_path)
         if not ok then
             UIManager:show(InfoMessage:new{
