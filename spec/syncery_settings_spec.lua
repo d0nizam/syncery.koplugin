@@ -543,6 +543,67 @@ end
 
 
 -- ----------------------------------------------------------------------------
+-- Prefetch path-learning rules: storage + most-recently-used-first bump.
+-- ----------------------------------------------------------------------------
+
+do
+    with_backend()
+    h.assert_deep_equal(Settings.get_prefetch_path_rules(), {},
+        "no rules yet -> empty list, not nil")
+end
+
+do
+    with_backend()
+    h.assert_true(Settings.add_prefetch_path_rule("/peer/a/", "/local/a/"), "first rule added")
+    h.assert_true(Settings.add_prefetch_path_rule("/peer/b/", "/local/b/"), "second rule added")
+    local rules = Settings.get_prefetch_path_rules()
+    h.assert_equal(#rules, 2, "both rules persisted")
+    h.assert_equal(rules[1].peer_prefix, "/peer/a/", "insertion order preserved")
+    h.assert_equal(rules[2].peer_prefix, "/peer/b/")
+
+    -- Exact duplicate: no-ops, does not grow the list.
+    h.assert_true(Settings.add_prefetch_path_rule("/peer/a/", "/local/a/"),
+        "re-adding an identical rule reports true (already known)")
+    h.assert_equal(#Settings.get_prefetch_path_rules(), 2,
+        "exact duplicate does not grow the rule list")
+
+    h.assert_false(Settings.add_prefetch_path_rule(nil, "/local/a/"), "nil peer_prefix -> false")
+    h.assert_false(Settings.add_prefetch_path_rule("/peer/a/", ""), "empty local_prefix -> false")
+end
+
+do
+    with_backend()
+    Settings.add_prefetch_path_rule("/peer/a/", "/local/a/")
+    Settings.add_prefetch_path_rule("/peer/b/", "/local/b/")
+    Settings.add_prefetch_path_rule("/peer/c/", "/local/c/")
+
+    -- Bump the LAST rule to the front.
+    h.assert_true(Settings.bump_prefetch_path_rule_to_front(
+        { peer_prefix = "/peer/c/", local_prefix = "/local/c/" }), "bump succeeds")
+    local rules = Settings.get_prefetch_path_rules()
+    h.assert_equal(rules[1].peer_prefix, "/peer/c/", "bumped rule is now first")
+    h.assert_equal(rules[2].peer_prefix, "/peer/a/", "remaining rules keep their relative order")
+    h.assert_equal(rules[3].peer_prefix, "/peer/b/")
+
+    -- Bumping the rule ALREADY at the front is a harmless no-op.
+    h.assert_true(Settings.bump_prefetch_path_rule_to_front(
+        { peer_prefix = "/peer/c/", local_prefix = "/local/c/" }),
+        "bumping the front rule again succeeds (no-op)")
+    h.assert_equal(Settings.get_prefetch_path_rules()[1].peer_prefix, "/peer/c/",
+        "order unchanged")
+
+    -- A rule that isn't in the stored list at all.
+    h.assert_false(Settings.bump_prefetch_path_rule_to_front(
+        { peer_prefix = "/never/seen/", local_prefix = "/x/" }),
+        "bumping an unknown rule returns false, does not raise")
+    h.assert_equal(#Settings.get_prefetch_path_rules(), 3, "list unchanged by the failed bump")
+
+    h.assert_false(Settings.bump_prefetch_path_rule_to_front(nil), "nil rule -> false, no raise")
+    h.assert_false(Settings.bump_prefetch_path_rule_to_front("not a table"), "non-table rule -> false")
+end
+
+
+-- ----------------------------------------------------------------------------
 -- After reset, backend reverts to _G.G_reader_settings (which is nil
 -- in this spec environment) and writes/reads no-op gracefully.
 -- ----------------------------------------------------------------------------
