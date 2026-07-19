@@ -2595,11 +2595,14 @@ function AllNotesViewer:showAllNotes()
         if ok_enum and by_book then
             for book_id, kinds in pairs(by_book) do
                 if kinds.annotations then
-                    local title = PluginSync.extract_title_hint(kinds.progress)
+                    local title, peer_path = PluginSync.extract_title_hint(kinds.progress)
                     books[#books + 1] = {
                         path             = nil,
                         annotations_path = kinds.annotations,
                         title            = title or book_id,
+                        is_prefetch_only = true,
+                        book_id          = book_id,
+                        peer_path        = peer_path,
                     }
                 end
             end
@@ -2720,13 +2723,9 @@ function AllNotesViewer:_confirmResolveConflict(note)
 end
 function AllNotesViewer:openBookAtNote(note)
     local book_path = note.book_path
-    if not book_path then
-        UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
-        return
-    end
-    
+
     local ReaderUI = require("apps/reader/readerui")
-    
+
     local function gotoNote(ui)
         if not ui or not ui.document then return end
         -- numeric-safe: KOReader's annotation `page` is an xpointer STRING for
@@ -2741,18 +2740,37 @@ function AllNotesViewer:openBookAtNote(note)
             ui:handleEvent(require("ui/event"):new("GotoPage", target_page))
         end
     end
-    
+
+    local function openAndGoto(path)
+        ReaderUI:showReader(path)
+        UIManager:scheduleIn(1.5, function()
+            local ui = require("apps/reader/readerui").instance
+            if ui then gotoNote(ui) end
+        end)
+    end
+
+    if not book_path then
+        if note.is_prefetch_only and note.book_id then
+            local PrefetchLocate = require("syncery_ui/prefetch_locate")
+            local resolved = PrefetchLocate.try_auto_resolve(note.book_id, note.peer_path)
+            if resolved then
+                openAndGoto(resolved)
+                return
+            end
+            PrefetchLocate.prompt(note.book_id, note.peer_path, openAndGoto)
+            return
+        end
+        UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
+        return
+    end
+
     if ReaderUI.instance and ReaderUI.instance.document then
         if ReaderUI.instance.document.file == book_path then
             gotoNote(ReaderUI.instance)
             return
         end
     end
-    
-    ReaderUI:showReader(book_path)
-    UIManager:scheduleIn(1.5, function()
-        local ui = require("apps/reader/readerui").instance
-        if ui then gotoNote(ui) end
-    end)
+
+    openAndGoto(book_path)
 end
 return AllNotesViewer
