@@ -61,6 +61,33 @@ do
     h.assert_equal(n._key, RANGE_KEY,                    "key carried for later use")
 end
 
+-- Prefetch-only carry-through: a book row with is_prefetch_only/book_id/
+-- peer_path (syncery_ui/prefetch_locate.lua's inputs) must propagate onto
+-- the resulting note, so AllNotesViewer:openBookAtNote can offer the
+-- "locate the file" flow instead of the plain "Cannot find book path".
+do
+    local PREFETCH_BOOK = {
+        title = "Never Opened Here", path = nil, filename = nil,
+        is_prefetch_only = true, book_id = "SOME_BOOK_ID_00000000000000000",
+        peer_path = "/peer/device/path/Book.epub",
+    }
+    local entry = { text = "x", pos0 = "/p[1].0", pos1 = "/p[1].10" }
+    local n = ViewerSource.entry_to_note(entry, RANGE_KEY, PREFETCH_BOOK)
+
+    h.assert_true(n.is_prefetch_only, "is_prefetch_only carried through")
+    h.assert_equal(n.book_id, "SOME_BOOK_ID_00000000000000000", "book_id carried through")
+    h.assert_equal(n.peer_path, "/peer/device/path/Book.epub", "peer_path carried through")
+    h.assert_nil(n.book_path, "book_path stays nil for a prefetch-only row")
+end
+
+-- A normal (non-prefetch) book must NOT pick up these fields from nowhere.
+do
+    local n = ViewerSource.entry_to_note(
+        { text = "x", pos0 = "/p[1].0", pos1 = "/p[1].10" }, RANGE_KEY, BOOK)
+    h.assert_nil(n.is_prefetch_only, "ordinary book: is_prefetch_only stays nil")
+    h.assert_nil(n.book_id, "ordinary book: book_id stays nil (not part of BOOK fixture)")
+end
+
 -- type classification by KEY: range WITHOUT note -> highlight; BOOKMARK -> bookmark
 do
     local hl = ViewerSource.entry_to_note(
