@@ -628,6 +628,22 @@ msgstr "Размер на шрифта"
 msgid "Font weight (boldness)"
 msgstr "Тегло на шрифта (удебеляване)"
 
+#: syncery_ui/menu/status_section.lua
+msgid ""
+"For cloud: pushes any changes you've made in books you've opened here, and pulls in whatever changed elsewhere — efficiently, without checking every book one by one. This also finds books you've never opened here that another device already has, and gets their reading progress and notes ready in advance, so they're waiting for you the moment you open them.\n"
+"\n"
+"For Syncthing: triggers an immediate scan of all your Syncthing folders, so its own background syncing catches up right away instead of waiting for its next scheduled check."
+msgstr ""
+"За cloud: качва промените, които си направил в книги, отворени тук, и "
+"сваля каквото се е сменило другаде — ефикасно, без да проверява всяка "
+"книга поотделно. Открива и книги, които никога не си отварял тук, но "
+"друго устройство вече има — и подготвя прогреса и бележките им "
+"предварително, така че да те чакат в момента, в който ги отвориш.\n"
+"\n"
+"За Syncthing: задейства незабавно сканиране на всичките ти Syncthing "
+"папки, за да може собственият му фонов sync да настигне веднага, вместо "
+"да чака следващата си планирана проверка."
+
 #: main.lua
 msgid "Found %d orphaned sync file. The book below was not found:"
 msgid_plural "Found %d orphaned sync files. The books below were not found:"
@@ -1119,6 +1135,10 @@ msgstr "Налично е обновление на плъгина"
 msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so you set the cloud up once here instead of in each plugin.  This changes those plugins' sync settings; turning it off afterwards leaves the last server in place.  Needs a WebDAV or Dropbox server (FTP cannot sync these databases)."
 msgstr "Насочва „Статистика“ и „Речник“ към собствения облачен сървър на Синери, така че настройваш облака веднъж тук вместо във всеки плъгин.  Това променя sync настройките на тези плъгини; изключването след това оставя последния сървър.  Нужен е WebDAV или Dropbox сървър (FTP не може да синхронизира тези бази данни)."
 
+#: syncery_ui/prefetch_locate.lua
+msgid "Point to it…"
+msgstr "Посочи…"
+
 #: syncery_transports/plugin_sync.lua
 msgid "Prefetching book %d/%d (%s)..."
 msgstr "Изтегляне на книга %d/%d (%s)..."
@@ -1146,16 +1166,6 @@ msgstr "Предлагай презареждане за синхронизир�
 #: syncery_ui/menu/annotations_section.lua
 msgid "Push this book's handmade TOC"
 msgstr "Изпрати ръчно създаденото съдържание на тази книга"
-
-#: syncery_ui/menu/status_section.lua
-msgid ""
-"Pushes every open book and publishes what changed here, then checks and pulls in whatever other devices changed (plus a Syncthing scan).\n"
-"\n"
-"Why manual, not periodic: telling other devices what changed — and checking theirs — means talking to the cloud. On a timer, that becomes frequent background network use and battery-draining Wi-Fi wake-ups while the device should be idle or asleep. Tapping it keeps that cost occasional, visible, and something you chose, not something that just happens."
-msgstr ""
-"Изпраща всяка отворена книга и публикува какво е променено тук, после проверява и издърпва каквото другите устройства са променили (плюс Syncthing scan).\n"
-"\n"
-"Защо ръчно, не периодично: да кажеш на другите устройства какво се е променило — и да провериш техните промени — означава връзка с облака. На таймер това се превръща в чести фонови мрежови заявки и батерия-източващи Wi-Fi събуждания, докато устройството би трябвало да е в покой или заспало. Тапвайки го, пазиш тази цена случайна, видима и избрана от теб — не нещо, което просто се случва."
 
 #: syncery_ui/menu/db_sync_section.lua
 msgid ""
@@ -1274,16 +1284,6 @@ msgstr "Ст: "
 #: syncery_ui/wizard.lua
 msgid "Saved locally for now — your data will sync once you set up a transport."
 msgstr "Засега се записва локално — данните ще се синхронизират, щом настроите транспорт."
-
-#: syncery_ui/menu/status_section.lua
-msgid ""
-"Saves and pushes every open book to the cloud, checks what other devices changed, and pulls that in — plus a Syncthing folder scan.\n"
-"\n"
-"Syncery saves automatically as you read — use this to push right away, or to check for other devices' changes without waiting."
-msgstr ""
-"Записва и изпраща всяка отворена книга в облака, проверява какво другите устройства са променили, и го издърпва — плюс Syncthing folder scan.\n"
-"\n"
-"Syncery записва автоматично, докато четеш — използвай това, за да изпратиш веднага, или за да провериш промените на другите устройства без да чакаш."
 
 #: syncery_ui/menu/maintenance_section.lua
 msgid ""
@@ -1530,6 +1530,16 @@ msgstr "Sync-конфликтът е разрешен."
 msgid "Synced books — %d SDR, %d Synceryhash, %d Pending"
 msgstr "Синхронизирани книги — %d SDR, %d Synceryhash, %d чакащи"
 
+#: syncery_ui/prefetch_locate.lua
+msgid ""
+"Synced from another device — hasn't been opened here yet.\n"
+"\n"
+"If you already have a copy of this book, point Syncery to it."
+msgstr ""
+"Синхронизирана от друго устройство — още не е отваряна тук.\n"
+"\n"
+"Ако вече имаш копие на тая книга, посочи я на Syncery."
+
 #: _meta.lua main.lua
 msgid "Syncery"
 msgstr "Syncery"
@@ -1691,6 +1701,10 @@ msgstr "Докоснете, за да въведете API ключа за Synct
 msgid "Text Margin: "
 msgstr "Отстъп на текста: "
 
+#: syncery_ui/prefetch_locate.lua
+msgid "That file's content doesn't match the synced book — likely a different edition or copy. Try a different file?"
+msgstr "Съдържанието на тоя файл не съвпада със синхронизираната книга — вероятно е друго издание или копие. Опитай с друг файл?"
+
 #: main.lua
 msgid ""
 "The KOSyncthing+ plugin is not installed.\n"
@@ -1780,6 +1794,10 @@ msgstr "Горен отстъп: "
 #: syncery_ui/menu/init.lua
 msgid "Transports"
 msgstr "Транспорти"
+
+#: syncery_ui/prefetch_locate.lua
+msgid "Try again"
+msgstr "Опитай пак"
 
 #: syncery_ui/wizard.lua
 msgid "Turn on what you want. If you don't choose now or in the What's synced menu, nothing will sync."
@@ -2280,7 +2298,7 @@ msgstr "Мигрирай"
 #: syncery_ui/booklist/init.lua syncery_ui/booklist/scan.lua
 #: syncery_ui/menu/_helpers.lua syncery_ui/menu/annotations_section.lua
 #: syncery_ui/menu/maintenance_section.lua syncery_ui/menu/per_book_section.lua
-#: syncery_ui/menu/transport_section.lua
+#: syncery_ui/menu/transport_section.lua syncery_ui/prefetch_locate.lua
 msgid "Cancel"
 msgstr "Отказ"
 
