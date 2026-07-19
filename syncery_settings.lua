@@ -433,4 +433,77 @@ function Settings.set_last_sync_all_ts(ts)
     G_reader_settings:saveSetting("syncery_last_sync_all_ts", ts)
 end
 
+-- ----------------------------------------------------------------------------
+-- Prefetch book-path learning: peer-path -> local-path prefix rules,
+-- learned from the user manually confirming (hash-verified) where a
+-- prefetch-only book's file actually lives on THIS device. Lets a LATER
+-- prefetch-only book in the same peer folder resolve automatically,
+-- without asking the user again -- see syncery_transports/plugin_sync.lua's
+-- compute_path_prefix_rule / resolve_via_learned_rules for the matching
+-- logic itself; this is purely the read/write storage for the learned
+-- rule list.
+-- ----------------------------------------------------------------------------
+
+local KEY_PREFETCH_PATH_RULES = "syncery_prefetch_path_rules"
+
+--- @return table list of {peer_prefix=string, local_prefix=string}
+function Settings.get_prefetch_path_rules()
+    local v = gs(KEY_PREFETCH_PATH_RULES, nil)
+    if type(v) ~= "table" then return {} end
+    return v
+end
+
+--- Record a newly-learned rule, skipping an exact duplicate. Rules are
+--- tried in INSERTION order by resolve_via_learned_rules, so a rule
+--- confirmed more recently (likely more specific to how the user is
+--- CURRENTLY organizing their library) is tried after older ones --
+--- correctness never depends on order (every candidate is hash-verified
+--- regardless), only which rule happens to resolve first when several
+--- could.
+function Settings.add_prefetch_path_rule(peer_prefix, local_prefix)
+    if type(peer_prefix) ~= "string" or peer_prefix == ""
+            or type(local_prefix) ~= "string" or local_prefix == "" then
+        return false
+    end
+    local rules = Settings.get_prefetch_path_rules()
+    for _, r in ipairs(rules) do
+        if r.peer_prefix == peer_prefix and r.local_prefix == local_prefix then
+            return true  -- already known
+        end
+    end
+    table.insert(rules, { peer_prefix = peer_prefix, local_prefix = local_prefix })
+    ss(KEY_PREFETCH_PATH_RULES, rules)
+    return true
+end
+
+--- Move a just-successfully-used rule to the FRONT of the stored list,
+--- so resolve_via_learned_rules tries it first on the NEXT prefetch-only
+--- book -- a small optimization for the common case of resolving
+--- several books from the same peer folder in a row (e.g. right after
+--- a Sync Now that just staged many). Matched by VALUE (peer_prefix +
+--- local_prefix), not object identity, since the rule table handed back
+--- by resolve_via_learned_rules may be a fresh table from a fresh
+--- get_prefetch_path_rules() read, not the exact same Lua object this
+--- call's own read produces.
+function Settings.bump_prefetch_path_rule_to_front(rule)
+    if type(rule) ~= "table" or type(rule.peer_prefix) ~= "string"
+            or type(rule.local_prefix) ~= "string" then
+        return false
+    end
+    local rules = Settings.get_prefetch_path_rules()
+    local idx = nil
+    for i, r in ipairs(rules) do
+        if r.peer_prefix == rule.peer_prefix and r.local_prefix == rule.local_prefix then
+            idx = i
+            break
+        end
+    end
+    if not idx then return false end
+    if idx == 1 then return true end  -- already at the front
+    local moved = table.remove(rules, idx)
+    table.insert(rules, 1, moved)
+    ss(KEY_PREFETCH_PATH_RULES, rules)
+    return true
+end
+
 return Settings
