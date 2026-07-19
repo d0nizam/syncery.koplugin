@@ -599,6 +599,13 @@ msgstr ""
 msgid "Font weight (boldness)"
 msgstr ""
 
+#: syncery_ui/menu/status_section.lua
+msgid ""
+"For cloud: pushes any changes you've made in books you've opened here, and pulls in whatever changed elsewhere — efficiently, without checking every book one by one. This also finds books you've never opened here that another device already has, and gets their reading progress and notes ready in advance, so they're waiting for you the moment you open them.\n"
+"\n"
+"For Syncthing: triggers an immediate scan of all your Syncthing folders, so its own background syncing catches up right away instead of waiting for its next scheduled check."
+msgstr ""
+
 #: main.lua
 msgid "Found %d orphaned sync file. The book below was not found:"
 msgid_plural "Found %d orphaned sync files. The books below were not found:"
@@ -1033,6 +1040,10 @@ msgstr ""
 msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so you set the cloud up once here instead of in each plugin.  This changes those plugins' sync settings; turning it off afterwards leaves the last server in place.  Needs a WebDAV or Dropbox server (FTP cannot sync these databases)."
 msgstr ""
 
+#: syncery_ui/prefetch_locate.lua
+msgid "Point to it…"
+msgstr ""
+
 #: syncery_transports/plugin_sync.lua
 msgid "Prefetching book %d/%d (%s)..."
 msgstr ""
@@ -1059,13 +1070,6 @@ msgstr ""
 
 #: syncery_ui/menu/annotations_section.lua
 msgid "Push this book's handmade TOC"
-msgstr ""
-
-#: syncery_ui/menu/status_section.lua
-msgid ""
-"Pushes every open book and publishes what changed here, then checks and pulls in whatever other devices changed (plus a Syncthing scan).\n"
-"\n"
-"Why manual, not periodic: telling other devices what changed — and checking theirs — means talking to the cloud. On a timer, that becomes frequent background network use and battery-draining Wi-Fi wake-ups while the device should be idle or asleep. Tapping it keeps that cost occasional, visible, and something you chose, not something that just happens."
 msgstr ""
 
 #: syncery_ui/menu/db_sync_section.lua
@@ -1163,13 +1167,6 @@ msgstr ""
 
 #: syncery_ui/wizard.lua
 msgid "Saved locally for now — your data will sync once you set up a transport."
-msgstr ""
-
-#: syncery_ui/menu/status_section.lua
-msgid ""
-"Saves and pushes every open book to the cloud, checks what other devices changed, and pulls that in — plus a Syncthing folder scan.\n"
-"\n"
-"Syncery saves automatically as you read — use this to push right away, or to check for other devices' changes without waiting."
 msgstr ""
 
 #: syncery_ui/menu/maintenance_section.lua
@@ -1379,6 +1376,13 @@ msgstr ""
 msgid "Synced books — %d SDR, %d Synceryhash, %d Pending"
 msgstr ""
 
+#: syncery_ui/prefetch_locate.lua
+msgid ""
+"Synced from another device — hasn't been opened here yet.\n"
+"\n"
+"If you already have a copy of this book, point Syncery to it."
+msgstr ""
+
 #: _meta.lua main.lua
 msgid "Syncery"
 msgstr ""
@@ -1514,6 +1518,10 @@ msgstr ""
 msgid "Text Margin: "
 msgstr ""
 
+#: syncery_ui/prefetch_locate.lua
+msgid "That file's content doesn't match the synced book — likely a different edition or copy. Try a different file?"
+msgstr ""
+
 #: main.lua
 msgid ""
 "The KOSyncthing+ plugin is not installed.\n"
@@ -1591,6 +1599,10 @@ msgstr ""
 
 #: syncery_ui/menu/init.lua
 msgid "Transports"
+msgstr ""
+
+#: syncery_ui/prefetch_locate.lua
+msgid "Try again"
 msgstr ""
 
 #: syncery_ui/wizard.lua
@@ -2060,7 +2072,7 @@ msgstr ""
 #: syncery_ui/booklist/init.lua syncery_ui/booklist/scan.lua
 #: syncery_ui/menu/_helpers.lua syncery_ui/menu/annotations_section.lua
 #: syncery_ui/menu/maintenance_section.lua syncery_ui/menu/per_book_section.lua
-#: syncery_ui/menu/transport_section.lua
+#: syncery_ui/menu/transport_section.lua syncery_ui/prefetch_locate.lua
 msgid "Cancel"
 msgstr ""
 
