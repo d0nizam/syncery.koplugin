@@ -234,26 +234,34 @@ function S.sync_now(plugin)
             end
             return _("Sync now")
         end,
-        help_text = _(
-            "Saves and pushes every open book to the cloud, checks what "
-            .. "other devices changed, and pulls that in — plus a "
-            .. "Syncthing folder scan.\n\n"
-            .. "Syncery saves automatically as you read — use this to "
-            .. "push right away, or to check for other devices' changes "
-            .. "without waiting."),
         keep_menu_open = true,
         enabled_func   = function() return true end,
-        hold_callback  = function() return _(
-            "Pushes every open book and publishes what changed here, "
-            .. "then checks and pulls in whatever other devices changed "
-            .. "(plus a Syncthing scan).\n\n"
-            .. "Why manual, not periodic: telling other devices what "
-            .. "changed — and checking theirs — means talking to the "
-            .. "cloud. On a timer, that becomes frequent background "
-            .. "network use and battery-draining Wi-Fi wake-ups while "
-            .. "the device should be idle or asleep. Tapping it keeps "
-            .. "that cost occasional, visible, and something you chose, "
-            .. "not something that just happens.") end,
+        -- BUGFIX: this used to carry a separate `help_text` field AND a
+        -- raw `hold_callback = function() return _(...) end`. Confirmed
+        -- against the real touchmenu.lua (TouchMenu:onMenuHold): when
+        -- hold_callback is present, it is called and the function
+        -- returns immediately (`hold_callback(self, item); return
+        -- true`) -- help_text is NEVER reached. But the raw
+        -- hold_callback here only computed-and-returned a string,
+        -- never calling UIManager:show itself -- its return value is
+        -- discarded by the caller. Net effect: holding this row showed
+        -- NOTHING at all, neither text. Fixed to use H.helpHold (the
+        -- established convention used by every other row in this
+        -- codebase), which correctly wraps the text in
+        -- UIManager:show(InfoMessage:new{...}); the redundant, dead
+        -- `help_text` field is removed.
+        hold_callback  = H.helpHold(_(
+            "For cloud: pushes any changes you've made in books you've "
+            .. "opened here, and pulls in whatever changed elsewhere — "
+            .. "efficiently, without checking every book one by one. "
+            .. "This also finds books you've never opened here that "
+            .. "another device already has, and gets their reading "
+            .. "progress and notes ready in advance, so they're waiting "
+            .. "for you the moment you open them.\n\n"
+            .. "For Syncthing: triggers an immediate scan of all your "
+            .. "Syncthing folders, so its own background syncing "
+            .. "catches up right away instead of waiting for its next "
+            .. "scheduled check.")),
         callback       = H.safe("Sync now", function()
             plugin:syncNow()
         end),
