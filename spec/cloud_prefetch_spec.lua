@@ -506,9 +506,11 @@ do
     end
     h.assert_equal(unsafe_count, 0, "unsafe book_id never entered the enumerated table")
 
-    local title = PluginSync.extract_title_hint(by_book[id1].progress)
+    local title, full_path = PluginSync.extract_title_hint(by_book[id1].progress)
     h.assert_equal(title, "Some Author - A Title",
         "title extracted from entries[*].file basename, extension stripped")
+    h.assert_equal(full_path, "/mnt/us/Books/BG/Some Author - A Title.epub",
+        "second return is the FULL recorded path, unstripped")
 
     local no_title = PluginSync.extract_title_hint(by_book[id2].progress)
     h.assert_nil(no_title, "no \"file\" field present -> nil, not an error")
