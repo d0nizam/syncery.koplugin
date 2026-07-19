@@ -158,7 +158,8 @@ function PluginSync.do_cloud_upload(plugin, state)
     local entries = {}
     local p_path = ProgressPaths.shared_progress_path(state.file)
     local a_path = AnnPaths.shared_annotations_path(state.file)
-    -- BUGFIX: Fix 4's
+    -- BUGFIX (confirmed empirically via Group A real-device testing, two
+    -- separate manifestations traced to the SAME root cause): Fix 4's
     -- hash-skip-cache was applied by DEFAULT to every do_cloud_upload call
     -- except the explicit force_sync=true ones. That meant the regular
     -- open-moment pull, the autosave-debounced upload, and the resume
@@ -602,7 +603,7 @@ local function _isSafeBookId(book_id)
         and not book_id:match("[^%w%-_]")
 end
 
---- Constraint Q: Cloud Storage+ listing's entries by book_id and
+--- Constraint Q: group a Cloud Storage+ listing's entries by book_id and
 --- kind, reusing the exact recognition pattern generateManifest already
 --- uses when walking cloud_staging/ (cloud/list.lua:47) -- applied here to
 --- the remote listing instead, not reinvented.
@@ -976,6 +977,13 @@ end
 --- so it cannot affect any hash the way an embedded-in-payload title hint
 --- would (that alternative was considered and rejected -- see the design
 --- doc). Returns nil (never raises) when there is nothing usable.
+--- @return string|nil title The book's basename, without extension.
+--- @return string|nil full_path The book's full path as recorded in the
+---   staged progress JSON's own "file" field (the ORIGIN device's path --
+---   may not exist at that exact location on THIS device, e.g. a
+---   different platform/folder layout; callers must verify with
+---   lfs.attributes and/or a content-id check before treating it as
+---   openable here -- see resolve_via_learned_rules).
 function PluginSync.extract_title_hint(progress_path)
     if not progress_path then return nil end
     local f = io.open(progress_path, "rb")
@@ -986,7 +994,100 @@ function PluginSync.extract_title_hint(progress_path)
     local path = content:match('"file"%s*:%s*"([^"]+)"')
     if not path then return nil end
     local base = path:match("([^/\\]+)$") or path
-    return (base:gsub("%.%w+$", ""))
+    return (base:gsub("%.%w+$", "")), path
+end
+
+
+--- Compute a reusable path-prefix substitution rule from a CONFIRMED
+--- peer-path/local-path pair -- the user manually located and hash-
+--- verified a prefetch-only book's file at `local_path`, whose staged
+--- progress/annotations JSON recorded the ORIGIN device's path as
+--- `peer_path`. Finds the longest matching TRAILING run of path
+--- components (not a raw character suffix, to avoid splitting a
+--- component in half, e.g. matching "ooks" inside both "eBooks" and
+--- "Books") and returns the two differing prefixes, so a LATER
+--- prefetch-only book recorded under the same peer folder can resolve
+--- automatically via resolve_via_learned_rules, without asking again.
+---
+--- @return table|nil {peer_prefix=string, local_prefix=string}, or nil
+---   if the paths share no matching trailing component at all (nothing
+---   useful to learn -- e.g. even the filename differs).
+function PluginSync.compute_path_prefix_rule(peer_path, local_path)
+    if type(peer_path) ~= "string" or peer_path == ""
+            or type(local_path) ~= "string" or local_path == "" then
+        return nil
+    end
+    local function split(p)
+        local parts = {}
+        for part in (p .. "/"):gmatch("([^/]*)/") do
+            table.insert(parts, part)
+        end
+        return parts
+    end
+    local peer_parts  = split(peer_path)
+    local local_parts = split(local_path)
+
+    local matched = 0
+    local i, j = #peer_parts, #local_parts
+    while i >= 1 and j >= 1 and peer_parts[i] ~= "" and peer_parts[i] == local_parts[j] do
+        matched = matched + 1
+        i = i - 1
+        j = j - 1
+    end
+    if matched == 0 then return nil end
+
+    local peer_prefix  = table.concat(peer_parts,  "/", 1, #peer_parts  - matched) .. "/"
+    local local_prefix = table.concat(local_parts, "/", 1, #local_parts - matched) .. "/"
+    return { peer_prefix = peer_prefix, local_prefix = local_prefix }
+end
+
+
+--- Try resolving `peer_path` (a prefetch-only book's recorded ORIGIN
+--- path) to a file on THIS device, using previously-learned rules.
+--- Every candidate is content-id-verified against `target_book_id`
+--- before being accepted -- a rule that doesn't apply here, or a stale/
+--- coincidental prefix+existence match, must never open the WRONG book;
+--- the hash check is the safety net that makes a wrong LEARNED rule
+--- harmless (it simply fails to match, falling through to the next rule
+--- or to the manual picker), not a correctness risk.
+---
+--- @param rules table list of {peer_prefix, local_prefix}, as returned
+---   by Settings.get_prefetch_path_rules().
+--- @return string|nil the verified local path, or nil if no rule
+---   produced a hash-confirmed match.
+--- @return table|nil the matched rule table itself (same object identity
+---   as the entry in `rules`), so a caller that persists rules can move
+---   it to the front for a most-recently-used-first search order on
+---   subsequent calls -- see syncery_ui/prefetch_locate.lua's
+---   try_auto_resolve.
+function PluginSync.resolve_via_learned_rules(peer_path, target_book_id, rules)
+    if type(peer_path) ~= "string" or peer_path == ""
+            or type(target_book_id) ~= "string" or target_book_id == ""
+            or type(rules) ~= "table" then
+        return nil
+    end
+    local lfs = Util.get_lfs()
+    if not lfs then return nil end
+    local ok_paths, Paths = pcall(require, "syncery_ann/paths")
+    if not ok_paths or not Paths or type(Paths._book_content_id) ~= "function" then
+        return nil
+    end
+
+    for _, rule in ipairs(rules) do
+        local pp = type(rule) == "table" and rule.peer_prefix
+        local lp = type(rule) == "table" and rule.local_prefix
+        if type(pp) == "string" and pp ~= "" and type(lp) == "string"
+                and peer_path:sub(1, #pp) == pp then
+            local candidate = lp .. peer_path:sub(#pp + 1)
+            if lfs.attributes(candidate, "mode") == "file" then
+                local ok_id, cid = pcall(Paths._book_content_id, candidate)
+                if ok_id and cid == target_book_id then
+                    return candidate, rule
+                end
+            end
+        end
+    end
+    return nil
 end
 
 
@@ -1003,7 +1104,7 @@ end
 --- income_file and places it into cloud_staging/prefetch/ via the
 --- shared _validateAndPlace.
 ---
---- BUGFIX: this originally passed a
+--- BUGFIX (Group A design-review find): this originally passed a
 --- SEPARATE "prefetch_progress"/"prefetch_annotations" kind, reasoning
 --- (correctly) that _build_merge_callback needed a signal to route the
 --- result into cloud_staging/prefetch/ instead of canonical. But that
@@ -1484,7 +1585,7 @@ function PluginSync.sync_all(plugin, opts)
                 return
             end
 
-            -- 2b-prefetch. Remote-only books (never opened on this device) --
+            -- 2b-prefetch. Remote-only books (never opened on this device)
             -- Reuses THIS SAME `entries`
             -- listing (Constraint O/Q) -- no second network round-trip.
             -- Constraint V: staged under prefetch/, never the flat top
