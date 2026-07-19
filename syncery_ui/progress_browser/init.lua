@@ -168,18 +168,33 @@ function ProgressBrowser._jumpToDevice(plugin, book, entry, label)
         jumpWithUndo(plugin, plugin.ui)
         return
     end
+
+    local function openAndJump(path)
+        local ReaderUI = require("apps/reader/readerui")
+        ReaderUI:showReader(path)
+        UIManager:scheduleIn(1.5, function()
+            local ui = require("apps/reader/readerui").instance
+            jumpWithUndo(ui and ui.syncery, ui)
+        end)
+    end
+
     if not book_path then
+        if book and book.is_prefetch_only and book.book_id then
+            local PrefetchLocate = require("syncery_ui/prefetch_locate")
+            local resolved = PrefetchLocate.try_auto_resolve(book.book_id, book.peer_path)
+            if resolved then
+                openAndJump(resolved)
+                return
+            end
+            PrefetchLocate.prompt(book.book_id, book.peer_path, openAndJump)
+            return
+        end
         UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
         return
     end
 
     -- Otherwise open it, then jump on the freshly-created instance.
-    local ReaderUI = require("apps/reader/readerui")
-    ReaderUI:showReader(book_path)
-    UIManager:scheduleIn(1.5, function()
-        local ui = require("apps/reader/readerui").instance
-        jumpWithUndo(ui and ui.syncery, ui)
-    end)
+    openAndJump(book_path)
 end
 
 
@@ -336,19 +351,24 @@ function ProgressBrowser.show(plugin)
     -- already handles "no local entry, peer entries exist" as a
     -- first-class case (confirmed by reading aggregate.lua directly, not
     -- assumed) -- these rows need no special rendering, only feeding in.
-    -- book_path stays nil; ProgressBrowser's own "Cannot find book path"
-    -- guard on the jump action already covers a book never opened here.
+    -- book_path stays nil; the jump action's own is_prefetch_only branch
+    -- tries auto-resolving via a learned rule first, then offers the
+    -- "locate the file" flow (syncery_ui/prefetch_locate.lua) before
+    -- ever falling back to the plain "Cannot find book path" guard.
     do
         local ok_enum, by_book = pcall(PluginSync.enumerate_prefetch_staging, plugin)
         if ok_enum and by_book then
             for book_id, kinds in pairs(by_book) do
                 if kinds.progress then
-                    local title = PluginSync.extract_title_hint(kinds.progress)
+                    local title, peer_path = PluginSync.extract_title_hint(kinds.progress)
                     books[#books + 1] = {
-                        title         = title or book_id,
-                        book_path     = nil,
-                        progress_path = kinds.progress,
-                        filename      = nil,
+                        title            = title or book_id,
+                        book_path        = nil,
+                        progress_path    = kinds.progress,
+                        filename         = nil,
+                        is_prefetch_only = true,
+                        book_id          = book_id,
+                        peer_path        = peer_path,
                     }
                 end
             end
