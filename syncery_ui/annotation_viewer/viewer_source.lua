@@ -55,6 +55,14 @@ function ViewerSource.entry_to_note(entry, key, book)
         book_path     = book.path,
         book_filename = book.filename,
         book_authors  = nil,
+        -- Prefetch-only carry-through (syncery_ui/prefetch_locate.lua):
+        -- a note whose book was never opened on this device has
+        -- book_path=nil but these three set, so openBookAtNote can offer
+        -- the "locate the file" flow instead of the plain
+        -- "Cannot find book path" message.
+        is_prefetch_only = book.is_prefetch_only,
+        book_id          = book.book_id,
+        peer_path        = book.peer_path,
         -- native content (annotationsviewer shape)
         -- `page` must be a NUMBER for go-to (GotoPage).  KOReader stores an
         -- annotation's `page` as an XPOINTER STRING for rolling docs -- the
