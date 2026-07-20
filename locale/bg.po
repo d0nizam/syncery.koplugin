@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Syncery 1.2.0\n"
+"Project-Id-Version: Syncery 1.2.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 06:59+0000\n"
 "PO-Revision-Date: 2026-07-11 15:54+0300\n"
@@ -43,6 +43,12 @@ msgid "%d book already in the new location."
 msgid_plural "%d books already in the new location."
 msgstr[0] "%d книга вече е на новото местоположение."
 msgstr[1] "%d книги вече са на новото местоположение."
+
+#: syncery_migration/storage_mode.lua
+msgid "%d book couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
+msgid_plural "%d books couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
+msgstr[0] "%d книга не може да бъде намерена автоматично. Посочи една — Syncery ще опита да намери останалите по същия папков модел."
+msgstr[1] "%d книги не могат да бъдат намерени автоматично. Посочи една — Syncery ще опита да намери останалите по същия папков модел."
 
 #: syncery_migration/storage_mode.lua
 msgid "%d book is not on this device — nothing was moved or deleted for it."
@@ -634,15 +640,9 @@ msgid ""
 "\n"
 "For Syncthing: triggers an immediate scan of all your Syncthing folders, so its own background syncing catches up right away instead of waiting for its next scheduled check."
 msgstr ""
-"За cloud: качва промените, които си направил в книги, отворени тук, и "
-"сваля каквото се е сменило другаде — ефикасно, без да проверява всяка "
-"книга поотделно. Открива и книги, които никога не си отварял тук, но "
-"друго устройство вече има — и подготвя прогреса и бележките им "
-"предварително, така че да те чакат в момента, в който ги отвориш.\n"
+"За cloud: качва промените, които си направил в книги, отворени тук, и сваля каквото се е сменило другаде — ефикасно, без да проверява всяка книга поотделно. Открива и книги, които никога не си отварял тук, но друго устройство вече има — и подготвя прогреса и бележките им предварително, така че да те чакат в момента, в който ги отвориш.\n"
 "\n"
-"За Syncthing: задейства незабавно сканиране на всичките ти Syncthing "
-"папки, за да може собственият му фонов sync да настигне веднага, вместо "
-"да чака следващата си планирана проверка."
+"За Syncthing: задейства незабавно сканиране на всичките ти Syncthing папки, за да може собственият му фонов sync да настигне веднага, вместо да чака следващата си планирана проверка."
 
 #: main.lua
 msgid "Found %d orphaned sync file. The book below was not found:"
@@ -1135,6 +1135,10 @@ msgstr "Налично е обновление на плъгина"
 msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so you set the cloud up once here instead of in each plugin.  This changes those plugins' sync settings; turning it off afterwards leaves the last server in place.  Needs a WebDAV or Dropbox server (FTP cannot sync these databases)."
 msgstr "Насочва „Статистика“ и „Речник“ към собствения облачен сървър на Синери, така че настройваш облака веднъж тук вместо във всеки плъгин.  Това променя sync настройките на тези плъгини; изключването след това оставя последния сървър.  Нужен е WebDAV или Dropbox сървър (FTP не може да синхронизира тези бази данни)."
 
+#: syncery_migration/storage_mode.lua
+msgid "Point one out…"
+msgstr "Посочи една…"
+
 #: syncery_ui/prefetch_locate.lua
 msgid "Point to it…"
 msgstr "Посочи…"
@@ -1394,6 +1398,10 @@ msgstr ""
 "Не променя съхранената анотация; засяга само как се показва тук.\n"
 "\n"
 "Работи дори докато синхронизацията е на пауза."
+
+#: syncery_migration/storage_mode.lua
+msgid "Skip"
+msgstr "Пропусни"
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua
 msgid "Sort"
@@ -1744,6 +1752,17 @@ msgstr ""
 "Състоянието на четене, оценката и настройките за изобразяване остават — те са собственото състояние на книгата в KOReader.\n"
 "\n"
 "Сигурни ли сте?"
+
+#: syncery_ui/annotation_viewer/viewer_lifted.lua
+#: syncery_ui/progress_browser/init.lua
+msgid ""
+"This device doesn't have a position for this book yet.\n"
+"\n"
+"If you already have a copy of this book, point Syncery to it."
+msgstr ""
+"Тук устройство все още няма позиция за тая книга.\n"
+"\n"
+"Ако вече имаш копие на тая книга, посочи я на Syncery."
 
 #: syncery_ui/progress_browser/init.lua
 msgid "This device has no saved position for this book."
