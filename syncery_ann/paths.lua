@@ -173,27 +173,49 @@ function Paths._first_existing_sidecar_file(book_path, suffix, canonical)
     end
 
     local docsettings = require("docsettings")
-    if not docsettings or not docsettings.getSidecarDir then
-        return canonical
-    end
     local book_filename = book_path:match("([^/\\]+)$") or "book"
     -- Canonical didn't exist; check the other sidecar locations (deduped,
     -- and skipping any that resolve back to canonical).
     local seen, candidates = { [canonical] = true }, {}
-    local function add(dir)
-        if dir and dir ~= "" then
-            local path = dir .. "/" .. book_filename .. suffix
-            if not seen[path] then
-                seen[path] = true
-                candidates[#candidates + 1] = path
-            end
+    local function add(path)
+        if path and path ~= "" and not seen[path] then
+            seen[path] = true
+            candidates[#candidates + 1] = path
         end
     end
-    for _, loc in ipairs({ "doc", "dir", "hash" }) do
-        local ok, dir = pcall(function()
-            return docsettings:getSidecarDir(book_path, loc)
-        end)
-        if ok then add(dir) end
+    -- Syncery's OWN previous storage mode (synceryhash/), content-hash
+    -- keyed so it is device-independent -- distinct from, and NOT
+    -- covered by, KOReader's native "doc"/"dir"/"hash" sidecar kinds
+    -- below (those are KOReader's own doc-settings storage families,
+    -- unrelated to Syncery's synceryhash/ folder; the SAME word "hash"
+    -- names two different things here). Without this candidate, a user
+    -- who switches Syncery's storage mode FROM synceryhash BACK TO sdr
+    -- would have their old synceryhash data silently never read again
+    -- -- confirmed on-device: opening the book after switching back
+    -- created a brand-new canonical with only the current device's own
+    -- entry, missing every other device's.
+    --
+    -- Computed inline (not via _shared_book_state_dir) to preserve this
+    -- function's own "touches nothing" contract: _shared_book_state_dir
+    -- creates the directory as a side effect (its normal, correct
+    -- behaviour for a WRITE-target helper), which a pure READ lookup
+    -- must not do -- especially not for a storage mode the user is not
+    -- even currently using.
+    local hash_book_id = Paths._book_content_id(book_path)
+    if hash_book_id then
+        local shard = hash_book_id:sub(1, 2)
+        add(Paths._syncery_state_dir() .. "/synceryhash/" .. shard
+            .. "/" .. hash_book_id .. "/" .. suffix:gsub("^%.", ""))
+    end
+    if docsettings and docsettings.getSidecarDir then
+        for _, loc in ipairs({ "doc", "dir", "hash" }) do
+            local ok, dir = pcall(function()
+                return docsettings:getSidecarDir(book_path, loc)
+            end)
+            if ok and dir and dir ~= "" then
+                add(dir .. "/" .. book_filename .. suffix)
+            end
+        end
     end
     for _, path in ipairs(candidates) do
         if lfs.attributes(path, "mode") == "file" then
