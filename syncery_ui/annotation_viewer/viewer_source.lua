@@ -55,14 +55,17 @@ function ViewerSource.entry_to_note(entry, key, book)
         book_path     = book.path,
         book_filename = book.filename,
         book_authors  = nil,
-        -- Prefetch-only carry-through (syncery_ui/prefetch_locate.lua):
-        -- a note whose book was never opened on this device has
-        -- book_path=nil but these three set, so openBookAtNote can offer
-        -- the "locate the file" flow instead of the plain
-        -- "Cannot find book path" message.
-        is_prefetch_only = book.is_prefetch_only,
-        book_id          = book.book_id,
-        peer_path        = book.peer_path,
+        -- Prefetch-only / path_unresolved_here carry-through
+        -- (syncery_ui/prefetch_locate.lua): a note whose book has no
+        -- resolving path here (never opened anywhere yet, OR opened
+        -- elsewhere but not on THIS device -- Scan.scanHash step 3) has
+        -- book_path=nil but these set, so openBookAtNote can offer the
+        -- "locate the file" flow instead of the plain "Cannot find book
+        -- path" message.
+        is_prefetch_only     = book.is_prefetch_only,
+        path_unresolved_here = book.path_unresolved_here,
+        book_id               = book.book_id,
+        peer_path             = book.peer_path,
         -- native content (annotationsviewer shape)
         -- `page` must be a NUMBER for go-to (GotoPage).  KOReader stores an
         -- annotation's `page` as an XPOINTER STRING for rolling docs -- the
@@ -155,6 +158,51 @@ function ViewerSource.notes_for_book(book)
     return out
 end
 
+
+--- Group `notes` by (chapter, highlighted_text) and keep only the
+--- OLDEST (earliest `datetime`) entry per group. Notes with empty text
+--- (bookmarks) are never grouped with anything -- always kept as-is.
+--- Pure function; does not touch any file. See notes_for_book's own
+--- comment for the full rationale.
+function ViewerSource._dedupe_by_text(notes)
+    local groups, singles, order = {}, {}, {}
+    for _, note in ipairs(notes) do
+        local text = note.highlighted_text
+        if type(text) == "string" and text ~= "" then
+            local group_key = (note.chapter or "") .. "\0" .. text
+            if not groups[group_key] then
+                groups[group_key] = {}
+                order[#order + 1] = group_key
+            end
+            table.insert(groups[group_key], note)
+        else
+            singles[#singles + 1] = note
+        end
+    end
+
+    local out = {}
+    for _, group_key in ipairs(order) do
+        local candidates = groups[group_key]
+        local oldest = candidates[1]
+        for i = 2, #candidates do
+            local c = candidates[i]
+            local c_dt = (c.datetime and c.datetime ~= "") and c.datetime or c.datetime_updated
+            local o_dt = (oldest.datetime and oldest.datetime ~= "") and oldest.datetime or oldest.datetime_updated
+            -- Both empty/unknown age: keep the one already chosen (stable,
+            -- avoids reshuffling on every read for genuinely unknown-age
+            -- entries). Only replace when c is STRICTLY older AND known.
+            if c_dt and c_dt ~= "" and (not o_dt or o_dt == "" or c_dt < o_dt) then
+                oldest = c
+            end
+        end
+        out[#out + 1] = oldest
+    end
+    for _, note in ipairs(singles) do
+        out[#out + 1] = note
+    end
+    return out
+end
+
 -- ---------------------------------------------------------------------------
 -- notes_for_books -- aggregate alive notes across a list of books.
 --
@@ -172,7 +220,19 @@ function ViewerSource.notes_for_books(books)
             table.insert(out, n)
         end
     end
-    return out
+    -- Display-level dedup, applied HERE (aggregate), not per-book: the
+    -- observed duplication is NOT two entries inside one canonical
+    -- annotations.json (confirmed on-device: the real file has exactly
+    -- one entry) -- it is TWO SEPARATE book-list rows resolving to the
+    -- SAME book_id (e.g. one row from before the "locate" flow
+    -- resolved this book, a stale annotations_path pointing elsewhere,
+    -- one from after), each correctly returning its own single note,
+    -- but never compared against EACH OTHER since notes_for_book only
+    -- sees its own book's file. Aggregating first, then deduping,
+    -- catches this; per-book dedup could not, by construction. See
+    -- _dedupe_by_text's own doc for the matching rule and why the
+    -- OLDER entry is kept.
+    return ViewerSource._dedupe_by_text(out)
 end
 
 -- ---------------------------------------------------------------------------
