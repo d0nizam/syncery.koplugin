@@ -70,6 +70,14 @@ package.loaded["util"] = {
 }
 
 -- Settings stub — the single chosen folder is swappable per test.
+-- Saved so the REAL module can be restored at the end of this file --
+-- otherwise this stub (set here at module scope, for the whole file's
+-- run) permanently replaces syncery_settings in package.loaded for
+-- every OTHER spec file that runs afterward in the same suite process
+-- (require() caches globally). Confirmed: this leak broke
+-- prefetch_locate_spec.lua once storage_mode.lua started requiring
+-- prefetch_locate.lua (which requires syncery_settings) at module load.
+local saved_syncery_settings_module = package.loaded["syncery_settings"]
 local syncthing_folder = nil
 package.loaded["syncery_settings"] = setmetatable({}, {
     __index = function(_, k)
@@ -564,6 +572,91 @@ do
         "scanHash finds a book written under the sharded layout")
     h.assert_equal(hit.mode, "hash", "scanned book is tagged mode='hash'")
     h.assert_equal(hit.file, book, "scanned book recovered its source file path")
+end
+
+
+-- ---------------------------------------------------------------------------
+-- path_unresolved_here: a book whose progress.json carries entries from
+-- OTHER devices, but NONE resolve on THIS one (a THIRD device that never
+-- opened it -- confirmed on-device: KOReader's own "File '...' does not
+-- exist" error, because the old fallback silently handed an unresolvable
+-- path straight to book_path). Distinct from is_prefetch_only: this book
+-- WAS opened -- just not here.
+-- ---------------------------------------------------------------------------
+do
+    local AnnPaths = require("syncery_ann/paths")
+    AnnPaths.set_storage_mode("hash")
+
+    local book_a = "/tmp/scanhash_unresolved_device_a.epub"
+    local book_b = "/tmp/scanhash_unresolved_device_b.epub"
+    -- Deliberately never created on disk -- neither device's recorded
+    -- path exists on THIS (test) "device".
+    os.remove(book_a)
+    os.remove(book_b)
+
+    local book_dir = AnnPaths._shared_book_state_dir(book_a)
+    local pf = io.open(book_dir .. "/syncery-progress.json", "w")
+    pf:write('{"entries":{'
+        .. '"DEVICE_A_0000000000000000000000":{"file":"' .. book_a .. '","percent":0.04},'
+        .. '"DEVICE_B_0000000000000000000000":{"file":"' .. book_b .. '","percent":0.05}'
+        .. '}}')
+    pf:close()
+
+    local found = {}
+    Scan.scanHash(found)
+
+    local hit = nil
+    for _, b in ipairs(found) do
+        if b.progress_path == book_dir .. "/syncery-progress.json" then
+            hit = b
+            break
+        end
+    end
+    h.assert_true(hit ~= nil, "unresolved-here book is still found and named")
+    h.assert_true(hit.path_unresolved_here,
+        "flagged path_unresolved_here: neither device's recorded path exists here")
+    h.assert_true(hit.file == book_a or hit.file == book_b,
+        "one of the (unresolvable) recorded paths is kept as a locate-flow hint")
+    h.assert_true(hit.book_id ~= nil and hit.book_id ~= "",
+        "book_id is exposed for the locate flow (PrefetchLocate.try_auto_resolve/verify_and_learn)")
+end
+
+do
+    -- Contrast case: the SAME shape, but ONE device's path genuinely
+    -- resolves here (a real file on disk) -- must NOT be flagged.
+    local AnnPaths = require("syncery_ann/paths")
+    AnnPaths.set_storage_mode("hash")
+
+    local book_real = "/tmp/scanhash_resolved_ok.epub"
+    local f = io.open(book_real, "w"); f:write("x"); f:close()
+    local book_gone = "/tmp/scanhash_resolved_gone.epub"
+    os.remove(book_gone)
+
+    local book_dir = AnnPaths._shared_book_state_dir(book_real)
+    local pf = io.open(book_dir .. "/syncery-progress.json", "w")
+    pf:write('{"entries":{'
+        .. '"DEVICE_GONE_000000000000000000":{"file":"' .. book_gone .. '","percent":0.05},'
+        .. '"DEVICE_HERE_000000000000000000":{"file":"' .. book_real .. '","percent":0.04}'
+        .. '}}')
+    pf:close()
+
+    local found = {}
+    Scan.scanHash(found)
+
+    local hit = nil
+    for _, b in ipairs(found) do
+        if b.progress_path == book_dir .. "/syncery-progress.json" then
+            hit = b
+            break
+        end
+    end
+    h.assert_true(hit ~= nil, "resolvable book is found")
+    h.assert_true(not hit.path_unresolved_here,
+        "NOT flagged: one recorded path genuinely resolves here (steps 1/2 succeed)")
+    h.assert_equal(hit.file, book_real,
+        "the RESOLVING path is chosen, not the non-existent one")
+
+    os.remove(book_real)
 end
 
 
@@ -1113,5 +1206,6 @@ do
     os.execute("rm -rf '" .. base .. "'")
 end
 
+package.loaded["syncery_settings"] = saved_syncery_settings_module
 
 h.teardown()
