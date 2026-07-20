@@ -91,15 +91,32 @@ function BookEnum.enumerate(is_cancelled, on_progress)
         local key = b.file or b.annotations_path
         if key and not seen[key] then
             seen[key] = true
+            -- path_unresolved_here (Scan.scanHash step 3): the book WAS
+            -- opened -- just not on THIS device -- so b.file is a
+            -- recorded-elsewhere path that does NOT exist here. Symmetric
+            -- with progress_enum.lua's own fix: keep it as peer_path
+            -- instead of `path`, for PrefetchLocate's auto-resolve/
+            -- manual-locate flow, rather than letting a caller try to
+            -- open a nonexistent file.
+            local unresolved = b.path_unresolved_here and b.file ~= nil
+            local path, book_id, peer_path
+            if unresolved then
+                path, book_id, peer_path = nil, b.book_id, b.file
+            else
+                path = b.file
+            end
             books[#books + 1] = {
                 title    = b.display_name,
-                path     = b.file,
+                path     = path,
                 filename = (b.file and (b.file:match("([^/\\]+)$") or b.file))
                            or b.display_name,
                 -- The REAL shared file the scan found by walking the local
                 -- filesystem.  Carry it so the viewer reads THIS file directly
                 -- instead of re-deriving a sidecar path from `path`.
-                annotations_path = b.annotations_path,
+                annotations_path     = b.annotations_path,
+                path_unresolved_here = unresolved,
+                book_id              = book_id,
+                peer_path            = peer_path,
             }
         end
     end
