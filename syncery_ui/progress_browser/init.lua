@@ -178,17 +178,13 @@ function ProgressBrowser._jumpToDevice(plugin, book, entry, label)
         end)
     end
 
+    -- book_path is expected to always be resolved by this point:
+    -- ProgressBrowser._openRow routes an is_prefetch_only/
+    -- path_unresolved_here book through PrefetchLocate BEFORE
+    -- showBookDetail (whose own buttons are _jumpToDevice's only two
+    -- call sites) ever runs. This guard is a defensive fallback, not
+    -- the normal path.
     if not book_path then
-        if book and book.is_prefetch_only and book.book_id then
-            local PrefetchLocate = require("syncery_ui/prefetch_locate")
-            local resolved = PrefetchLocate.try_auto_resolve(book.book_id, book.peer_path)
-            if resolved then
-                openAndJump(resolved)
-                return
-            end
-            PrefetchLocate.prompt(book.book_id, book.peer_path, openAndJump)
-            return
-        end
         UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
         return
     end
@@ -221,6 +217,49 @@ function ProgressBrowser._confirmResolve(plugin, book, viewer)
             UIManager:show(InfoMessage:new{ text = msg })
         end,
     })
+end
+
+
+--- Row-tap entry point: if the book's path genuinely resolves on THIS
+--- device (the normal, common case), goes straight to showBookDetail --
+--- zero behaviour change from before this function existed. If not
+--- (is_prefetch_only: never opened anywhere yet, OR
+--- path_unresolved_here: opened elsewhere, just not here -- see
+--- syncery_ui/booklist/scan.lua's Scan.scanHash step 3), routes through
+--- PrefetchLocate FIRST. Once resolved, `r.book.book_path` is filled in
+--- and showBookDetail runs NORMALLY from there -- so the user freely
+--- picks among ALL the book's device positions (including "jump to
+--- most recent"), not just whichever one happened to trigger the
+--- locate. _jumpToDevice itself needs no is_prefetch_only handling of
+--- its own: both its call sites are exclusively inside showBookDetail
+--- (its own per-device buttons and its "jump to most recent" button),
+--- so by the time it ever runs, book_path is already guaranteed
+--- resolved, either from the start or via this function.
+function ProgressBrowser._openRow(plugin, r)
+    local book = r.book
+    if not (book.is_prefetch_only or book.path_unresolved_here) then
+        ProgressBrowser.showBookDetail(plugin, book, r.state, r.agg, r.conflict_count)
+        return
+    end
+
+    local PrefetchLocate = require("syncery_ui/prefetch_locate")
+    local function onResolved(path)
+        book.book_path = path
+        ProgressBrowser.showBookDetail(plugin, book, r.state, r.agg, r.conflict_count)
+    end
+
+    local resolved = PrefetchLocate.try_auto_resolve(book.book_id, book.peer_path)
+    if resolved then
+        onResolved(resolved)
+        return
+    end
+
+    local explain_text
+    if book.path_unresolved_here then
+        explain_text = _("This device doesn't have a position for this book yet.\n\n"
+            .. "If you already have a copy of this book, point Syncery to it.")
+    end
+    PrefetchLocate.prompt(book.book_id, book.peer_path, onResolved, explain_text)
 end
 
 
@@ -428,8 +467,7 @@ function ProgressBrowser.show(plugin)
                 text      = glyph .. "  " .. title .. suffix,
                 mandatory = row_mandatory(r.agg),
                 callback  = function()
-                    ProgressBrowser.showBookDetail(
-                        plugin, r.book, r.state, r.agg, r.conflict_count)
+                    ProgressBrowser._openRow(plugin, r)
                 end,
             }
         end
