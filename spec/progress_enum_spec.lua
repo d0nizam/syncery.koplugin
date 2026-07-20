@@ -148,5 +148,66 @@ do
     Scan.scanHash = saved_scanHash
 end
 
+
+-- ---------------------------------------------------------------------------
+-- 3. path_unresolved_here (Scan.scanHash step 3): a book WAS opened, just not
+--    on THIS device -- book_path must be nil (never handed an unresolvable
+--    path to try opening), with peer_path/book_id/the flag itself exposed
+--    instead, for PrefetchLocate's auto-resolve/manual-locate flow.
+-- ---------------------------------------------------------------------------
+do
+    local Scan = package.loaded["syncery_ui/booklist/scan"]
+    local saved_scanHash = Scan.scanHash
+    Scan.scanHash = function(raw)
+        raw[#raw + 1] = {
+            file                 = "/peer/device/Unresolved.epub",
+            progress_path        = "/state/synceryhash/ab/ab123/syncery-progress.json",
+            annotations_path     = "/state/synceryhash/ab/ab123/syncery-annotations.json",
+            display_name         = "Unresolved Elsewhere",
+            book_id              = "ab123",
+            path_unresolved_here = true,
+        }
+        -- Contrast: a normal, resolving row in the SAME batch, to prove the
+        -- flag does not leak onto rows that never set it.
+        raw[#raw + 1] = {
+            file              = "/books/ResolvesHere.epub",
+            progress_path     = "/books/ResolvesHere.epub.sdr/ResolvesHere.epub.syncery-progress.json",
+            annotations_path  = nil,
+            display_name      = "Resolves Here",
+        }
+    end
+
+    local books = ProgressEnum.enumerate()
+
+    local unresolved, resolved = nil, nil
+    for _, b in ipairs(books) do
+        if b.title == "Unresolved Elsewhere" then unresolved = b end
+        if b.title == "Resolves Here" then resolved = b end
+    end
+
+    h.assert_true(unresolved ~= nil, "unresolved-here row is still enumerated (named, actionable)")
+    if unresolved then
+        h.assert_nil(unresolved.book_path,
+            "book_path is nil -- never handed an unresolvable path to try opening")
+        h.assert_true(unresolved.path_unresolved_here,
+            "path_unresolved_here flag carried through")
+        h.assert_equal(unresolved.peer_path, "/peer/device/Unresolved.epub",
+            "the recorded (unresolvable-here) path is kept as peer_path, for the locate flow")
+        h.assert_equal(unresolved.book_id, "ab123",
+            "book_id carried through, for PrefetchLocate.try_auto_resolve/verify_and_learn")
+    end
+
+    h.assert_true(resolved ~= nil, "a normal, resolving row in the same batch is also enumerated")
+    if resolved then
+        h.assert_equal(resolved.book_path, "/books/ResolvesHere.epub",
+            "a normal row keeps its real book_path")
+        h.assert_true(not resolved.path_unresolved_here,
+            "the flag does not leak onto a row that never set it")
+        h.assert_nil(resolved.peer_path, "no peer_path for a normally-resolving row")
+    end
+
+    Scan.scanHash = saved_scanHash
+end
+
 h.teardown()
 print("progress_enum_spec: assertions complete")
