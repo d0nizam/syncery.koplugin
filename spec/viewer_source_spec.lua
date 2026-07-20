@@ -88,6 +88,26 @@ do
     h.assert_nil(n.book_id, "ordinary book: book_id stays nil (not part of BOOK fixture)")
 end
 
+-- path_unresolved_here carry-through (symmetric with is_prefetch_only, but
+-- a DIFFERENT situation -- book_enum.lua's Scan.scanHash step 3: the book
+-- WAS opened, just not on this device): must propagate distinctly, so
+-- openBookAtNote can offer its own, different explain text.
+do
+    local UNRESOLVED_BOOK = {
+        title = "Opened Elsewhere", path = nil, filename = nil,
+        path_unresolved_here = true, book_id = "OTHER_BOOK_ID_0000000000000",
+        peer_path = "/peer/device/path/Other.epub",
+    }
+    local entry = { text = "x", pos0 = "/p[1].0", pos1 = "/p[1].10" }
+    local n = ViewerSource.entry_to_note(entry, RANGE_KEY, UNRESOLVED_BOOK)
+
+    h.assert_true(n.path_unresolved_here, "path_unresolved_here carried through")
+    h.assert_nil(n.is_prefetch_only, "is_prefetch_only stays nil -- distinct situation")
+    h.assert_equal(n.book_id, "OTHER_BOOK_ID_0000000000000", "book_id carried through")
+    h.assert_equal(n.peer_path, "/peer/device/path/Other.epub", "peer_path carried through")
+    h.assert_nil(n.book_path, "book_path stays nil for an unresolved-here row")
+end
+
 -- type classification by KEY: range WITHOUT note -> highlight; BOOKMARK -> bookmark
 do
     local hl = ViewerSource.entry_to_note(
@@ -251,6 +271,154 @@ do
     -- sorted by label: "Kindle" < "Phone" < "unknown device"
     h.assert_equal(devs[1].label, "Kindle",         "sorted by label: Kindle first")
     h.assert_equal(devs[3].label, "unknown device", "nil label -> 'unknown device' last")
+end
+
+
+-- ---------------------------------------------------------------------------
+-- _dedupe_by_text (display-level dedup for the cross-device re-stamped-
+-- duplicate symptom -- see notes_for_book's own comment for the full
+-- rationale: stage_pending_at_close deliberately strips device_id for a
+-- byte-identical-file guarantee, and the "empty device_id = needs
+-- stamping" heuristic elsewhere then re-stamps a delivered peer highlight
+-- with THIS device's identity on a later read, which can end up with a
+-- different pos0/pos1-derived key for what is visually the same
+-- highlight).
+-- ---------------------------------------------------------------------------
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "Same highlight text",
+          datetime = "2026-07-18 09:00:00", device_label = "a54xnaeea" },
+        { chapter = "Ch1", highlighted_text = "Same highlight text",
+          datetime = "2026-07-17 10:00:00", device_label = "Linux" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 1, "duplicate collapses to one entry")
+    h.assert_equal(out[1].device_label, "Linux", "the OLDER (earlier datetime) entry survives")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "A repeated phrase", datetime = "2026-07-17 09:00:00" },
+        { chapter = "Ch5", highlighted_text = "A repeated phrase", datetime = "2026-07-17 10:00:00" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 2, "different chapters -> both kept, not treated as duplicates")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "First highlight", datetime = "2026-07-17 09:00:00" },
+        { chapter = "Ch1", highlighted_text = "Second highlight", datetime = "2026-07-17 10:00:00" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 2, "different text -> both kept")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = nil, page = 5, datetime = "2026-07-17 09:00:00" },
+        { chapter = "Ch1", highlighted_text = "", page = 5, datetime = "2026-07-17 10:00:00" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 2, "no-text entries (bookmarks) are always kept, never grouped")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "X", datetime = "2026-07-19 00:00:00", device_label = "third" },
+        { chapter = "Ch1", highlighted_text = "X", datetime = "2026-07-17 00:00:00", device_label = "oldest" },
+        { chapter = "Ch1", highlighted_text = "X", datetime = "2026-07-18 00:00:00", device_label = "middle" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 1, "three-way duplicate collapses to one")
+    h.assert_equal(out[1].device_label, "oldest", "the genuinely oldest of three survives")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "Y", datetime = "", device_label = "first-seen" },
+        { chapter = "Ch1", highlighted_text = "Y", datetime = "", device_label = "second-seen" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 1, "still collapses to one even with unknown ages")
+    h.assert_equal(out[1].device_label, "first-seen",
+        "unknown-age tie is stable: keeps the first one seen, not arbitrary reshuffling")
+end
+
+do
+    local notes = {
+        { chapter = "Ch1", highlighted_text = "Z", datetime = "", datetime_updated = "2026-07-18 00:00:00" },
+        { chapter = "Ch1", highlighted_text = "Z", datetime = "", datetime_updated = "2026-07-17 00:00:00" },
+    }
+    local out = ViewerSource._dedupe_by_text(notes)
+    h.assert_equal(#out, 1)
+    h.assert_equal(out[1].datetime_updated, "2026-07-17 00:00:00",
+        "falls back to datetime_updated for the age comparison when datetime is empty")
+end
+
+do
+    h.assert_deep_equal(ViewerSource._dedupe_by_text({}), {}, "empty input -> empty output, no raise")
+end
+
+
+-- ---------------------------------------------------------------------------
+-- Integration: notes_for_books (aggregate) applies the dedup, catching
+-- the REAL on-device shape of the bug -- confirmed via the actual
+-- canonical annotations.json content: it holds exactly ONE entry per
+-- file. The duplication is TWO SEPARATE book-list rows for the same
+-- book_id (e.g. a stale row from before the "locate" flow resolved
+-- this book, alongside the fresh one after), each with its OWN
+-- annotations_path, each correctly returning ONE note on its own --
+-- notes_for_book alone cannot catch this (it only ever sees one book's
+-- file); aggregating first, then deduping, does.
+-- ---------------------------------------------------------------------------
+
+do
+    local ConflictResolver = require("syncery_ann/conflict_resolver")
+    local saved_merged_view = ConflictResolver.merged_view
+    local per_path_state = {
+        ["/fake/stale.json"] = {
+            annotations = {
+                ["/body/DocFragment[7]/body/p[3]/text()[3].220||/body/DocFragment[7]/body/p[3]/text()[3].280"] = {
+                    text = "There is a small, almost hidden beach in Macau",
+                    chapter = "1. The Bigger Picture",
+                    datetime = "2026-07-17 00:00:00", device_label = "Linux",
+                    pos0 = "/body/DocFragment[7]/body/p[3]/text()[3].220",
+                    pos1 = "/body/DocFragment[7]/body/p[3]/text()[3].280",
+                },
+            },
+        },
+        ["/fake/fresh.json"] = {
+            annotations = {
+                ["/body/DocFragment[7]/body/p[3]/text()[3].221||/body/DocFragment[7]/body/p[3]/text()[3].281"] = {
+                    text = "There is a small, almost hidden beach in Macau",
+                    chapter = "1. The Bigger Picture",
+                    datetime = "2026-07-18 00:00:00", device_label = "a54xnaeea",
+                    pos0 = "/body/DocFragment[7]/body/p[3]/text()[3].221",
+                    pos1 = "/body/DocFragment[7]/body/p[3]/text()[3].281",
+                },
+            },
+        },
+    }
+    ConflictResolver.merged_view = function(path)
+        return per_path_state[path] or { annotations = {} }, 0
+    end
+
+    local books = {
+        { title = "You and Your Profile", annotations_path = "/fake/stale.json" },
+        { title = "You and Your Profile", annotations_path = "/fake/fresh.json" },
+    }
+    local notes = ViewerSource.notes_for_books(books)
+
+    h.assert_equal(#notes, 1,
+        "END-TO-END: two SEPARATE book rows for the same book_id, each with "
+        .. "its own single-entry file, collapse to ONE displayed note when "
+        .. "aggregated then deduped")
+    h.assert_equal(notes[1].device_label, "Linux",
+        "the older (original) entry is the one displayed")
+
+    ConflictResolver.merged_view = saved_merged_view
 end
 
 
