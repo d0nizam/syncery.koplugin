@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Syncery 1.2.0\n"
+"Project-Id-Version: Syncery 1.2.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 06:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -41,6 +41,12 @@ msgstr[1] ""
 #: syncery_migration/storage_mode.lua
 msgid "%d book already in the new location."
 msgid_plural "%d books already in the new location."
+msgstr[0] ""
+msgstr[1] ""
+
+#: syncery_migration/storage_mode.lua
+msgid "%d book couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
+msgid_plural "%d books couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -1040,6 +1046,10 @@ msgstr ""
 msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so you set the cloud up once here instead of in each plugin.  This changes those plugins' sync settings; turning it off afterwards leaves the last server in place.  Needs a WebDAV or Dropbox server (FTP cannot sync these databases)."
 msgstr ""
 
+#: syncery_migration/storage_mode.lua
+msgid "Point one out…"
+msgstr ""
+
 #: syncery_ui/prefetch_locate.lua
 msgid "Point to it…"
 msgstr ""
@@ -1258,6 +1268,10 @@ msgid ""
 "Does not alter the stored annotation; only affects how it is displayed here.\n"
 "\n"
 "Works even while syncing is paused."
+msgstr ""
+
+#: syncery_migration/storage_mode.lua
+msgid "Skip"
 msgstr ""
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua
@@ -1552,6 +1566,14 @@ msgid ""
 "Reading status, rating, and render settings stay — they're the book's own KOReader state.\n"
 "\n"
 "Are you sure?"
+msgstr ""
+
+#: syncery_ui/annotation_viewer/viewer_lifted.lua
+#: syncery_ui/progress_browser/init.lua
+msgid ""
+"This device doesn't have a position for this book yet.\n"
+"\n"
+"If you already have a copy of this book, point Syncery to it."
 msgstr ""
 
 #: syncery_ui/progress_browser/init.lua
