@@ -341,6 +341,67 @@ end
 
 
 -- ----------------------------------------------------------------------------
+-- Multi-location read resolver ALSO checks Syncery's OWN synceryhash/
+-- location, distinct from KOReader's native doc/dir/hash sidecar kinds
+-- above.  Reproduces the reported bug: switch storage mode from
+-- synceryhash BACK to sdr, and the OLD synceryhash canonical (with
+-- entries from other devices) must still be found -- not silently
+-- treated as a fresh book.
+-- ----------------------------------------------------------------------------
+
+do
+    -- Write data under synceryhash/ while mode is "hash" (matching how it
+    -- would have really gotten there).
+    Paths.set_storage_mode("hash")
+    local book = "/tmp/switched_back_book.epub"
+    local hash_dir = Paths._shared_book_state_dir(book)
+    local hash_file = hash_dir .. "/syncery-annotations.json"
+    local fh = io.open(hash_file, "w")
+    fh:write('{"entries":{"OTHER_DEVICE_00000000000000":{"file":"x"}}}')
+    fh:close()
+
+    -- Now switch BACK to sdr -- the exact user action that triggered this.
+    Paths.set_storage_mode("sdr")
+
+    local p = Paths.shared_annotations_path_for_read(book)
+    h.assert_equal(p, hash_file,
+        "BUGFIX: after switching storage mode back to sdr, the read "
+        .. "resolver still finds the OLD synceryhash canonical -- "
+        .. "previously this fallback list only checked KOReader's native "
+        .. "doc/dir/hash sidecar kinds (a name collision: KOReader's own "
+        .. "'hash' doc-settings mode is NOT Syncery's synceryhash/ "
+        .. "folder), so the old data was silently never read again")
+
+    h.assert_equal(lfs.attributes(p, "mode"), "file",
+        "the found synceryhash file genuinely exists on disk")
+
+    os.execute("rm -rf '" .. hash_dir .. "'")
+end
+
+do
+    -- Symmetric check for progress (shares the same resolver via
+    -- syncery_progress/paths.lua delegating to this module's
+    -- _first_existing_sidecar_file).
+    local ProgressPaths = require("syncery_progress/paths")
+    Paths.set_storage_mode("hash")
+    local book = "/tmp/switched_back_progress_book.epub"
+    local hash_dir = Paths._shared_book_state_dir(book)
+    local hash_file = hash_dir .. "/syncery-progress.json"
+    local fh = io.open(hash_file, "w")
+    fh:write('{"entries":{"OTHER_DEVICE_00000000000000":{"percent":0.5}}}')
+    fh:close()
+
+    Paths.set_storage_mode("sdr")
+
+    local p = ProgressPaths.shared_progress_path_for_read(book)
+    h.assert_equal(p, hash_file,
+        "BUGFIX applies symmetrically to progress (shared resolver)")
+
+    os.execute("rm -rf '" .. hash_dir .. "'")
+end
+
+
+-- ----------------------------------------------------------------------------
 -- Ownership-checked directory removal (never delete KOReader's .sdr)
 -- ----------------------------------------------------------------------------
 
