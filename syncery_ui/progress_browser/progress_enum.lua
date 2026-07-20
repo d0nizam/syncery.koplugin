@@ -104,12 +104,30 @@ function ProgressEnum.enumerate(is_cancelled, on_progress)
             local key = b.file or b.progress_path
             if key and not seen[key] then
                 seen[key] = true
+                -- path_unresolved_here (Scan.scanHash step 3): the book WAS
+                -- opened -- just not on THIS device -- so b.file is a
+                -- recorded-elsewhere path that does NOT exist here. Handing
+                -- it straight to book_path would let the caller try to open
+                -- a nonexistent file (confirmed on-device: KOReader's own
+                -- "File '...' does not exist" error). Keep it as peer_path
+                -- instead, for PrefetchLocate's auto-resolve/manual-locate
+                -- flow -- symmetric with is_prefetch_only's own peer_path.
+                local unresolved = b.path_unresolved_here and b.file ~= nil
+                local book_path, book_id, peer_path
+                if unresolved then
+                    book_path, book_id, peer_path = nil, b.book_id, b.file
+                else
+                    book_path = b.file
+                end
                 books[#books + 1] = {
-                    title         = b.display_name,
-                    book_path     = b.file,
-                    progress_path = b.progress_path,
-                    filename      = (b.file and (b.file:match("([^/\\]+)$") or b.file))
-                                    or b.display_name,
+                    title                = b.display_name,
+                    book_path            = book_path,
+                    progress_path        = b.progress_path,
+                    filename             = (b.file and (b.file:match("([^/\\]+)$") or b.file))
+                                           or b.display_name,
+                    path_unresolved_here = unresolved,
+                    book_id              = book_id,
+                    peer_path            = peer_path,
                 }
             end
         end
