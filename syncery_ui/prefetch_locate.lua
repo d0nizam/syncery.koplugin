@@ -5,7 +5,8 @@
 -- Shared "locate this prefetch-only book" flow for Progress Browser and
 -- Annotation Browser: a row whose progress/annotations were prefetched
 -- from a peer, but whose actual book FILE has never been opened on this
--- device.
+-- device
+--
 -- Two layers, deliberately split:
 --   * PURE decision logic (try_auto_resolve, verify_and_learn) -- no UI
 --     widgets touched, fully unit-testable. See spec/prefetch_locate_spec.lua.
@@ -110,7 +111,14 @@ end
 --- has no opinion on HOW; Progress Browser and Annotation Browser each
 --- open slightly differently, e.g. Progress Browser follows up with a
 --- jump).
-function PrefetchLocate.prompt(book_id, peer_path, on_opened)
+--- @param explain_text string|nil the ConfirmBox's explanatory text.
+---   Defaults to the never-opened-anywhere-yet wording (the original,
+---   still correct for is_prefetch_only). A book that WAS opened
+---   elsewhere but has no resolving path on THIS device
+---   (path_unresolved_here) is a DIFFERENT situation and needs its own
+---   wording -- callers pass it explicitly rather than this module
+---   guessing which case it is.
+function PrefetchLocate.prompt(book_id, peer_path, on_opened, explain_text)
     local UIManager   = require("ui/uimanager")
     local ConfirmBox  = require("ui/widget/confirmbox")
     local PathChooser = require("ui/widget/pathchooser")
@@ -153,8 +161,9 @@ function PrefetchLocate.prompt(book_id, peer_path, on_opened)
     end
 
     UIManager:show(ConfirmBox:new{
-        text = _("Synced from another device — hasn't been opened here yet.\n\n"
-                 .. "If you already have a copy of this book, point Syncery to it."),
+        text = explain_text or _(
+            "Synced from another device — hasn't been opened here yet.\n\n"
+            .. "If you already have a copy of this book, point Syncery to it."),
         ok_text     = _("Point to it…"),
         ok_callback = open_picker,
         cancel_text = _("Cancel"),
