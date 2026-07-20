@@ -2666,7 +2666,16 @@ function AllNotesViewer:showNoteDetails(note, parent_widget)
     local edit_text = has_note and _( "Edit Note" ) or _( "Add Note" )
     local popup
     local buttons = {}
-    if book_exists then
+    -- BUGFIX: this button is the ONLY way to reach openBookAtNote, where
+    -- the "locate the file" flow (syncery_ui/prefetch_locate.lua) lives.
+    -- Gating it on book_exists alone made that flow completely
+    -- unreachable for is_prefetch_only/path_unresolved_here notes -- no
+    -- button meant no way to ever tap into the locate prompt. Confirmed
+    -- on-device: notes from devices whose book_path didn't resolve here
+    -- showed only "Close", no goto button at all. goto_text (computed
+    -- above) already covers bookmark/note/highlight correctly; nothing
+    -- else needs to change for those to keep working once located.
+    if book_exists or note.is_prefetch_only or note.path_unresolved_here then
         table.insert(buttons, { text = goto_text, callback = function()
             UIManager:close(popup)
             UIManager:close(parent_widget)
@@ -2750,14 +2759,19 @@ function AllNotesViewer:openBookAtNote(note)
     end
 
     if not book_path then
-        if note.is_prefetch_only and note.book_id then
+        if (note.is_prefetch_only or note.path_unresolved_here) and note.book_id then
             local PrefetchLocate = require("syncery_ui/prefetch_locate")
             local resolved = PrefetchLocate.try_auto_resolve(note.book_id, note.peer_path)
             if resolved then
                 openAndGoto(resolved)
                 return
             end
-            PrefetchLocate.prompt(note.book_id, note.peer_path, openAndGoto)
+            local explain_text
+            if note.path_unresolved_here then
+                explain_text = _("This device doesn't have a position for this book yet.\n\n"
+                    .. "If you already have a copy of this book, point Syncery to it.")
+            end
+            PrefetchLocate.prompt(note.book_id, note.peer_path, openAndGoto, explain_text)
             return
         end
         UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
