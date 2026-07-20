@@ -114,4 +114,58 @@ do
     Scan.scanHash = saved_scanHash
 end
 
+
+-- ---------------------------------------------------------------------------
+-- path_unresolved_here (symmetric with progress_enum_spec.lua's own test):
+-- a book WAS opened, just not on THIS device -- path must be nil, with
+-- peer_path/book_id/the flag itself exposed instead, for PrefetchLocate's
+-- auto-resolve/manual-locate flow.
+-- ---------------------------------------------------------------------------
+do
+    local Scan = package.loaded["syncery_ui/booklist/scan"]
+    local saved_scanHash = Scan.scanHash
+    Scan.scanHash = function(raw)
+        raw[#raw + 1] = {
+            file                 = "/peer/device/Unresolved.epub",
+            annotations_path     = "/state/synceryhash/ab/ab123/syncery-annotations.json",
+            display_name         = "Unresolved Elsewhere",
+            book_id              = "ab123",
+            path_unresolved_here = true,
+        }
+        raw[#raw + 1] = {     -- contrast: a normal, resolving row
+            file              = "/books/ResolvesHere.epub",
+            annotations_path  = "/books/ResolvesHere.epub.sdr/ResolvesHere.epub.syncery-annotations.json",
+            display_name      = "Resolves Here",
+        }
+    end
+
+    local books = BookEnum.enumerate()
+
+    local unresolved, resolved = nil, nil
+    for _, b in ipairs(books) do
+        if b.title == "Unresolved Elsewhere" then unresolved = b end
+        if b.title == "Resolves Here" then resolved = b end
+    end
+
+    h.assert_true(unresolved ~= nil, "unresolved-here row is still enumerated")
+    if unresolved then
+        h.assert_nil(unresolved.path,
+            "path is nil -- never handed an unresolvable path to try opening")
+        h.assert_true(unresolved.path_unresolved_here, "flag carried through")
+        h.assert_equal(unresolved.peer_path, "/peer/device/Unresolved.epub",
+            "the recorded (unresolvable-here) path is kept as peer_path")
+        h.assert_equal(unresolved.book_id, "ab123", "book_id carried through")
+    end
+
+    h.assert_true(resolved ~= nil, "a normal, resolving row in the same batch is also enumerated")
+    if resolved then
+        h.assert_equal(resolved.path, "/books/ResolvesHere.epub",
+            "a normal row keeps its real path")
+        h.assert_true(not resolved.path_unresolved_here,
+            "the flag does not leak onto a row that never set it")
+    end
+
+    Scan.scanHash = saved_scanHash
+end
+
 h.teardown()
