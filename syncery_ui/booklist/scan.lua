@@ -395,10 +395,20 @@ function Scan.scanHash(books)
         -- 3. Else any recorded path. The book is not on THIS device; the
         --    display/management caller must still name it, and migration's
         --    safety net correctly skips it (the path does not resolve).
+        --    Flagged path_unresolved_here so Progress/Annotation Browser
+        --    can offer the "locate the file" flow (syncery_ui/
+        --    prefetch_locate.lua) instead of silently trying to open a
+        --    path that does not exist here -- confirmed on-device (a
+        --    third device, neither of the two devices whose entries this
+        --    book carried, saw exactly this: KOReader's own "File '...'
+        --    does not exist" error, because this fallback's pick was
+        --    handed straight to book_path as if it had resolved).
+        local path_unresolved_here = false
         if not book_file then
             for _, entry_data in pairs(entries) do
                 if type(entry_data) == "table" and entry_data.file then
                     book_file = entry_data.file
+                    path_unresolved_here = true
                     break
                 end
             end
@@ -414,11 +424,13 @@ function Scan.scanHash(books)
         end
 
         table.insert(books, {
-            progress_path    = progress_path,
-            annotations_path = ann_path,
-            display_name     = real_name or (_("Book ") .. entry:sub(1, 8)),
-            file             = book_file,
-            mode             = "hash",
+            progress_path       = progress_path,
+            annotations_path    = ann_path,
+            display_name        = real_name or (_("Book ") .. entry:sub(1, 8)),
+            file                = book_file,
+            mode                = "hash",
+            book_id             = entry,
+            path_unresolved_here = path_unresolved_here,
         })
         count = count + 1
         if count % 50 == 0 then
