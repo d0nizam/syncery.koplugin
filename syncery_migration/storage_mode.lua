@@ -54,6 +54,8 @@ local AnnPaths      = require("syncery_ann/paths")
 local ProgressPaths = require("syncery_progress/paths")
 local I18n          = require("syncery_i18n")
 local ScatteredMetadata = require("syncery_migration/scattered_metadata")
+local PluginSync    = require("syncery_transports/plugin_sync")
+local PrefetchLocate = require("syncery_ui/prefetch_locate")
 
 local _  = I18n.translate
 local _n = I18n.ngettext
@@ -112,6 +114,122 @@ local function move_one(lfs, src, dst)
     end
 
     return false   -- no source, no destination → nothing to place
+end
+
+
+--- Migrate ONE book's progress + annotation files to the current
+--- storage mode's canonical location, given a RESOLVED book.file (the
+--- caller -- perform_migration's main loop, or the resolve-then-retry
+--- step below -- is responsible for confirming book.file resolves on
+--- this device before calling this).
+--- @return "migrated"|"already_there"
+local function migrate_one_book(lfs, book)
+    local dst_prog = ProgressPaths.shared_progress_path(book.file)
+    local dst_ann  = AnnPaths.shared_annotations_path(book.file)
+
+    -- Per-file convergence. Pre-state tells us which files this pass
+    -- actually places (vs already present), so a partially-migrated
+    -- book (progress moved earlier, annotations not) gets finished here
+    -- instead of being skipped forever on the progress check -- and a
+    -- book that has no annotations file is not mistaken for unmigrated.
+    local prog_pre = dst_prog and lfs.attributes(dst_prog, "mode") == "file"
+    local ann_pre  = dst_ann  and lfs.attributes(dst_ann,  "mode") == "file"
+
+    move_one(lfs, book.progress_path, dst_prog)
+    move_one(lfs, book.annotations_path, dst_ann)
+
+    local prog_now = dst_prog and lfs.attributes(dst_prog, "mode") == "file"
+    local ann_now  = dst_ann  and lfs.attributes(dst_ann,  "mode") == "file"
+    if (prog_now and not prog_pre) or (ann_now and not ann_pre) then
+        return "migrated"       -- placed at least one file this pass
+    end
+    return "already_there"      -- both files already in the new layout
+end
+
+
+--- Derive a usable peer_path for PrefetchLocate's auto-resolve/verify
+--- flow from a book whose OWN book.file didn't resolve here -- read
+--- from its progress JSON's own recorded "file" field (any device's;
+--- for prefix-rule learning purposes, any valid recorded path works,
+--- see compute_path_prefix_rule's own doc). nil if unavailable
+--- (progress_path missing, or the JSON has no "file" field at all).
+local function peer_path_for_book(book)
+    if not book.progress_path then return nil end
+    local ok, _title, peer_path = pcall(PluginSync.extract_title_hint, book.progress_path)
+    if not ok then return nil end
+    return peer_path
+end
+
+
+--- Iteratively resolve `not_here_books` (each missing a valid book.file)
+--- via PrefetchLocate: first silently try already-learned rules for ALL
+--- of them, then -- if any remain -- offer ONE manual locate for the
+--- first, learn a prefix rule from it, and retry auto-resolve for the
+--- rest (a single learned rule often covers many books sharing the same
+--- parent folder structure, even across different genre subfolders --
+--- confirmed: compute_path_prefix_rule settles its prefix boundary one
+--- level ABOVE whatever subfolder the located book was in). Repeats
+--- until either none remain or the user skips/cancels.
+---
+--- `on_done(resolved_books)` fires with the list of books that gained a
+--- valid `book.file` this run (mutated in place on each book table) --
+--- the caller migrates them and updates its own report. Each book
+--- KEEPS its book.file even if on_done's caller does nothing with it
+--- (harmless: the book simply resolves faster next time this function
+--- runs, e.g. a later migration attempt).
+function StorageMode.resolve_not_here_books(not_here_books, on_done)
+    local resolved = {}
+    local remaining = {}
+    for _, b in ipairs(not_here_books) do remaining[#remaining + 1] = b end
+
+    local function try_auto_resolve_pass()
+        local still_remaining = {}
+        for _, book in ipairs(remaining) do
+            local pp = peer_path_for_book(book)
+            local r = book.book_id and pp and PrefetchLocate.try_auto_resolve(book.book_id, pp)
+            if r then
+                book.file = r
+                resolved[#resolved + 1] = book
+            else
+                still_remaining[#still_remaining + 1] = book
+            end
+        end
+        remaining = still_remaining
+    end
+
+    local function step()
+        try_auto_resolve_pass()
+        if #remaining == 0 then
+            on_done(resolved)
+            return
+        end
+
+        local ConfirmBox = require("ui/widget/confirmbox")
+        UIManager:show(ConfirmBox:new{
+            text = string.format(_n(
+                "%d book couldn't be found automatically. Point one out — "
+                    .. "Syncery will try to find the rest using the same folder pattern.",
+                "%d books couldn't be found automatically. Point one out — "
+                    .. "Syncery will try to find the rest using the same folder pattern.",
+                #remaining), #remaining),
+            ok_text = _("Point one out…"),
+            ok_callback = function()
+                local book = table.remove(remaining, 1)
+                local pp = peer_path_for_book(book)
+                PrefetchLocate.prompt(book.book_id, pp, function(path)
+                    book.file = path
+                    resolved[#resolved + 1] = book
+                    step()   -- loop: retry auto-resolve for the rest with the new rule
+                end)
+            end,
+            cancel_text = _("Skip"),
+            cancel_callback = function()
+                on_done(resolved)
+            end,
+        })
+    end
+
+    step()
 end
 
 
@@ -201,6 +319,7 @@ function StorageMode.perform_migration(plugin, books, on_complete)
     end
 
     local migrated, already_there, not_here = 0, 0, 0
+    local not_here_books = {}
     local lfs = Util.get_lfs()
 
     -- The OTHER devices that also hold Syncery data for these books (id ->
@@ -233,6 +352,15 @@ function StorageMode.perform_migration(plugin, books, on_complete)
 
             if not book.file then
                 not_here = not_here + 1
+                -- Only a book with a book_id can ever be VERIFIED (hash
+                -- comparison) if resolved -- without one, offering the
+                -- locate picker would be pointless (it could never
+                -- confirm a match), so such books go straight to the
+                -- final "not here" count instead of into the resolve
+                -- flow below.
+                if book.book_id then
+                    not_here_books[#not_here_books + 1] = book
+                end
             elseif lfs and lfs.attributes(book.file, "mode") ~= "file" then
                 -- Safety net: book.file must resolve to a real book on disk.
                 -- The destination's synceryhash hash is derived from this path,
@@ -241,28 +369,14 @@ function StorageMode.perform_migration(plugin, books, on_complete)
                 -- deleting the source — silent data loss.  If the book the
                 -- path names isn't there, do NOT move; leave the source intact.
                 not_here = not_here + 1
+                if book.book_id then
+                    not_here_books[#not_here_books + 1] = book
+                end
             else
-                local dst_prog = ProgressPaths.shared_progress_path(book.file)
-                local dst_ann  = AnnPaths.shared_annotations_path(book.file)
-
-                -- Per-file convergence. Pre-state tells us which
-                -- files this pass actually places (vs already present),
-                -- so a partially-migrated book (progress moved earlier,
-                -- annotations not) gets finished here instead of being
-                -- skipped forever on the progress check — and a book that
-                -- has no annotations file is not mistaken for unmigrated.
-                local prog_pre = dst_prog and lfs.attributes(dst_prog, "mode") == "file"
-                local ann_pre  = dst_ann  and lfs.attributes(dst_ann,  "mode") == "file"
-
-                move_one(lfs, book.progress_path, dst_prog)
-                move_one(lfs, book.annotations_path, dst_ann)
-
-                local prog_now = dst_prog and lfs.attributes(dst_prog, "mode") == "file"
-                local ann_now  = dst_ann  and lfs.attributes(dst_ann,  "mode") == "file"
-                if (prog_now and not prog_pre) or (ann_now and not ann_pre) then
-                    migrated = migrated + 1       -- placed at least one file this pass
+                if migrate_one_book(lfs, book) == "migrated" then
+                    migrated = migrated + 1
                 else
-                    already_there = already_there + 1  -- both files already in the new layout
+                    already_there = already_there + 1
                 end
             end
 
@@ -279,74 +393,100 @@ function StorageMode.perform_migration(plugin, books, on_complete)
 
         Trapper:reset()
 
-        local msg
-        if cancelled then
-            msg = string.format(
-                _("Migration cancelled. %d of %d books processed."),
-                migrated + already_there + not_here, #books)
-        else
-            msg = string.format(
-                _n("Migrated %d book.", "Migrated %d books.", migrated), migrated)
-            if already_there > 0 then
-                msg = msg .. "\n" .. string.format(
-                    _n("%d book already in the new location.",
-                       "%d books already in the new location.", already_there),
-                    already_there)
+        local function show_final_report()
+            local msg
+            if cancelled then
+                msg = string.format(
+                    _("Migration cancelled. %d of %d books processed."),
+                    migrated + already_there + not_here, #books)
+            else
+                msg = string.format(
+                    _n("Migrated %d book.", "Migrated %d books.", migrated), migrated)
+                if already_there > 0 then
+                    msg = msg .. "\n" .. string.format(
+                        _n("%d book already in the new location.",
+                           "%d books already in the new location.", already_there),
+                        already_there)
+                end
+                if not_here > 0 then
+                    msg = msg .. "\n" .. string.format(
+                        _n("%d book is not on this device \xE2\x80\x94 nothing was moved or deleted for it.",
+                           "%d books are not on this device \xE2\x80\x94 nothing was moved or deleted for them.", not_here),
+                        not_here)
+                end
             end
-            if not_here > 0 then
+            -- Name the OTHER devices that also hold data for these books, so the
+            -- user knows to repeat the migration there.  Sorted for a stable order
+            -- (pairs() order is unspecified).  Shown only when there are others and
+            -- the run completed (a cancelled run is reported on its own).
+            local foreign_names = {}
+            for _, name in pairs(foreign) do foreign_names[#foreign_names + 1] = name end
+            table.sort(foreign_names)
+            local has_foreign = #foreign_names > 0
+            if not cancelled and has_foreign then
                 msg = msg .. "\n" .. string.format(
-                    _n("%d book is not on this device \xE2\x80\x94 nothing was moved or deleted for it.",
-                       "%d books are not on this device \xE2\x80\x94 nothing was moved or deleted for them.", not_here),
-                    not_here)
+                    _("Syncery also has data from your other devices: %s. Run this migration on each of them too."),
+                    table.concat(foreign_names, ", "))
             end
-        end
-        -- Name the OTHER devices that also hold data for these books, so the
-        -- user knows to repeat the migration there.  Sorted for a stable order
-        -- (pairs() order is unspecified).  Shown only when there are others and
-        -- the run completed (a cancelled run is reported on its own).
-        local foreign_names = {}
-        for _, name in pairs(foreign) do foreign_names[#foreign_names + 1] = name end
-        table.sort(foreign_names)
-        local has_foreign = #foreign_names > 0
-        if not cancelled and has_foreign then
-            msg = msg .. "\n" .. string.format(
-                _("Syncery also has data from your other devices: %s. Run this migration on each of them too."),
-                table.concat(foreign_names, ", "))
-        end
-        -- Optional follow-up, computed INSIDE the wrap (see on_complete
-        -- docstring).  It RETURNS a widget to show AFTER this message is
-        -- dismissed (sequential), or nil for none.  Detection inside it stays
-        -- synchronous.  `skipped` is kept as a combined (already-here +
-        -- not-here) count for the existing contract; callers that ignore the
-        -- args are unaffected.
-        local followup
-        if type(on_complete) == "function" then
-            followup = on_complete(migrated, already_there + not_here, cancelled)
+            -- Optional follow-up, computed INSIDE the wrap (see on_complete
+            -- docstring).  It RETURNS a widget to show AFTER this message is
+            -- dismissed (sequential), or nil for none.  Detection inside it stays
+            -- synchronous.  `skipped` is kept as a combined (already-here +
+            -- not-here) count for the existing contract; callers that ignore the
+            -- args are unaffected.
+            local followup
+            if type(on_complete) == "function" then
+                followup = on_complete(migrated, already_there + not_here, cancelled)
+            end
+
+            -- A report that names other devices, flags books not on this device, or
+            -- has a follow-up to show next, is worth reading -- keep it up until
+            -- dismissed instead of vanishing.  nil timeout = stays until dismissed;
+            -- 4 = auto-vanish.  (Lua note: `sticky and nil or 4` is ALWAYS 4 --
+            -- `and nil` makes the left falsy -- so branch explicitly.)
+            local sticky = (not cancelled) and (has_foreign or not_here > 0 or followup ~= nil)
+            local timeout = 4
+            if sticky then timeout = nil end
+            -- Show the follow-up only after THIS message closes (by tap or its own
+            -- timeout), so the two read in sequence -- migration result first,
+            -- advisory next -- instead of stacking with the advisory on top.
+            local dismiss_cb
+            if followup then dismiss_cb = function() UIManager:show(followup) end end
+            UIManager:show(InfoMessage:new{
+                text = msg,
+                timeout = timeout,
+                dismiss_callback = dismiss_cb,
+            })
+            if plugin._logActivity then
+                plugin:_logActivity(_("Migrate books"), string.format(
+                    "%d migrated, %d already there, %d not here%s",
+                    migrated, already_there, not_here,
+                    cancelled and " (cancelled)" or ""))
+            end
         end
 
-        -- A report that names other devices, flags books not on this device, or
-        -- has a follow-up to show next, is worth reading -- keep it up until
-        -- dismissed instead of vanishing.  nil timeout = stays until dismissed;
-        -- 4 = auto-vanish.  (Lua note: `sticky and nil or 4` is ALWAYS 4 --
-        -- `and nil` makes the left falsy -- so branch explicitly.)
-        local sticky = (not cancelled) and (has_foreign or not_here > 0 or followup ~= nil)
-        local timeout = 4
-        if sticky then timeout = nil end
-        -- Show the follow-up only after THIS message closes (by tap or its own
-        -- timeout), so the two read in sequence -- migration result first,
-        -- advisory next -- instead of stacking with the advisory on top.
-        local dismiss_cb
-        if followup then dismiss_cb = function() UIManager:show(followup) end end
-        UIManager:show(InfoMessage:new{
-            text = msg,
-            timeout = timeout,
-            dismiss_callback = dismiss_cb,
-        })
-        if plugin._logActivity then
-            plugin:_logActivity(_("Migrate books"), string.format(
-                "%d migrated, %d already there, %d not here%s",
-                migrated, already_there, not_here,
-                cancelled and " (cancelled)" or ""))
+        -- Before reporting, try to resolve as many "not here" books as
+        -- possible via PrefetchLocate -- first silently (already-learned
+        -- rules), then (if any remain) one manual locate at a time,
+        -- learning a rule from each and retrying the rest -- rather than
+        -- reporting them as simply absent when the user might be able to
+        -- point Syncery at them (see StorageMode.resolve_not_here_books's
+        -- own doc for the full flow). Skipped when cancelled (the user
+        -- already dismissed the run) or when nothing is unresolved.
+        if not cancelled and #not_here_books > 0 then
+            StorageMode.resolve_not_here_books(not_here_books, function(resolved_books)
+                for _, book in ipairs(resolved_books) do
+                    if migrate_one_book(lfs, book) == "migrated" then
+                        migrated = migrated + 1
+                    else
+                        already_there = already_there + 1
+                    end
+                    not_here = not_here - 1
+                end
+                show_final_report()
+            end)
+        else
+            show_final_report()
         end
     end)
 end
