@@ -61,6 +61,21 @@ end
 
 local lfs = require("lfs")
 
+-- Require the SUT (and its transitive dependency chain -- storage_mode
+-- now requires syncery_ui/prefetch_locate, which requires
+-- syncery_settings) HERE -- after the UI stubs above (so storage_mode's
+-- own require("ui/uimanager") etc. succeed) but BEFORE either do-block's
+-- own package.loaded["syncery_settings"] stub takes effect. Confirmed:
+-- this test's own fake settings stub (which returns a
+-- function-returning-nil for EVERY method, including ones added later
+-- like get_prefetch_path_rules) previously got captured PERMANENTLY into
+-- prefetch_locate.lua's own local `Settings` upvalue when storage_mode's
+-- FIRST-EVER require happened during that stub's active window --
+-- require() caches the bound reference at first load, so restoring
+-- package.loaded afterward does not undo an already-bound upvalue in a
+-- module that only requires once.
+require("syncery_migration/storage_mode")
+
 -- ---------------------------------------------------------------------------
 -- The user's scenario: SDR storage, KOReader metadata=doc, switch to hash.
 -- ---------------------------------------------------------------------------
@@ -92,6 +107,15 @@ do
         getDocSettingsDir     = function() return settings_dir .. "/docsettings" end,
         getDocSettingsHashDir = function() return settings_dir .. "/hashdocsettings" end,
     }
+    -- Saved so it can be correctly RESTORED at the end of this block --
+    -- otherwise this stub (which returns nil for every method, including
+    -- ones added later like get_prefetch_path_rules) permanently replaces
+    -- the real module in package.loaded for the REST of the suite run,
+    -- since require() caches globally across all spec files sharing this
+    -- one Lua process. Confirmed: this leak broke prefetch_locate_spec.lua
+    -- once storage_mode.lua itself started requiring prefetch_locate.lua
+    -- (which requires syncery_settings) at module load.
+    local saved_syncery_settings_1 = package.loaded["syncery_settings"]
     package.loaded["syncery_settings"] = setmetatable({}, {
         __index = function(_, k)
             return function() return nil end
@@ -140,6 +164,7 @@ do
         "e2e: the picker is NOT shown — the history-derived root found the doc-location book")
 
     os.execute("rm -rf '" .. base .. "'")
+    package.loaded["syncery_settings"] = saved_syncery_settings_1
 end
 
 
@@ -179,6 +204,7 @@ do
         getDocSettingsDir     = function() return settings_dir .. "/docsettings" end,
         getDocSettingsHashDir = function() return hashds end,
     }
+    local saved_syncery_settings_2 = package.loaded["syncery_settings"]
     package.loaded["syncery_settings"] = setmetatable({}, {
         __index = function(_, k)
             return function() return nil end
@@ -223,6 +249,7 @@ do
         "e2e hashdocsettings: all four hashdocsettings sources are consumed (not left behind)")
 
     os.execute("rm -rf '" .. base .. "'")
+    package.loaded["syncery_settings"] = saved_syncery_settings_2
 end
 
 h.teardown()
