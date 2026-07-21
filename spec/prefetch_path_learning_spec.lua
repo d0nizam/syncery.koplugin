@@ -177,6 +177,52 @@ do
     h.assert_nil(PluginSync.resolve_via_learned_rules("/a/b.epub", "id", {}), "empty rules list -> nil")
 end
 
+
+-- ----------------------------------------------------------------------------
+-- resolve_via_learned_rules_no_verify -- prefix match + existence only,
+-- no content-id check (for SDR-mode migration books, which have no
+-- book_id to verify against -- see syncery_migration/storage_mode.lua's
+-- own comment on why book_id is not computable there for a not-here book).
+-- ----------------------------------------------------------------------------
+
+do
+    local lib_dir = test_root .. "/no_verify_lib"
+    os.execute("mkdir -p '" .. lib_dir .. "'")
+    local local_path = lib_dir .. "/AnyContent.epub"
+    local f = io.open(local_path, "wb")
+    f:write("literally any content -- never hash-checked by this function")
+    f:close()
+
+    local rules = { { peer_prefix = "/peer/root/", local_prefix = lib_dir .. "/" } }
+    local resolved = PluginSync.resolve_via_learned_rules_no_verify(
+        "/peer/root/AnyContent.epub", rules)
+    h.assert_equal(resolved, local_path,
+        "resolves purely on prefix match + on-disk existence, no content-id involved")
+end
+
+do
+    -- No rule's prefix matches.
+    local rules = { { peer_prefix = "/some/other/root/", local_prefix = "/tmp/lib/" } }
+    h.assert_nil(PluginSync.resolve_via_learned_rules_no_verify(
+        "/completely/different/root/Book.epub", rules),
+        "no matching prefix -> nil")
+end
+
+do
+    -- Prefix matches, but nothing exists at the candidate path.
+    local rules = { { peer_prefix = "/peer/root/",
+        local_prefix = "/tmp/does-not-exist-" .. tostring(os.time()) .. "/" } }
+    h.assert_nil(PluginSync.resolve_via_learned_rules_no_verify(
+        "/peer/root/Ghost.epub", rules),
+        "candidate does not exist on disk -> nil, no raise")
+end
+
+do
+    h.assert_nil(PluginSync.resolve_via_learned_rules_no_verify(nil, {}), "nil peer_path -> nil")
+    h.assert_nil(PluginSync.resolve_via_learned_rules_no_verify("/a/b.epub", nil), "nil rules -> nil")
+    h.assert_nil(PluginSync.resolve_via_learned_rules_no_verify("/a/b.epub", {}), "empty rules -> nil")
+end
+
 os.execute("rm -rf " .. test_root)
 
 print("prefetch_path_learning_spec: all assertions passed")
