@@ -1,5 +1,27 @@
 # Changelog
 
+## [v1.2.1] — 2026-07-21
+
+
+### Added
+- **Progress Browser and Annotation Browser now find books that exist on
+  this device but weren't recognized.** Two related situations, both
+  previously reported as errors or silently miscounted:
+  - A book synced from another device, never opened here — you can now
+    point Syncery at the file directly ("Point to it…"), verified by
+    content match, not just filename.
+  - A book that WAS opened elsewhere, but this device's recorded path for
+    it doesn't resolve (moved, different platform, different folder
+    layout) — same "Point to it…" flow, worded for that case
+    specifically.
+  - Once you locate a book this way, Syncery remembers the folder pattern
+    (e.g. "Books/EN" → "Documents/Books/EN") and auto-resolves the next
+    book from a sibling folder (e.g. "Books/BG") without asking again.
+- **"Migrate all books to this storage mode…" now uses the same "Point to
+  it…" flow** for books it can't find automatically, instead of just
+  reporting them as "not on this device." Already-learned folder patterns
+  from Progress/Annotation Browser are tried silently first.
+
 ## [v1.2.0] — 2026-07-17
 
 ### Added
