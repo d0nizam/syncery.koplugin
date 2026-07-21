@@ -560,6 +560,49 @@ do
 end
 
 
+-- perform_migration SILENT no-verify resolve: a book WITHOUT book_id (the
+-- SDR-scan case -- book_id there would itself require reading the very
+-- file that is missing, so it is never set) whose book.file doesn't
+-- resolve, but a rule ALREADY learned (hash-verified once, when first
+-- learned) matches its path, gets silently migrated -- no dialog, no
+-- new learning, purely benefiting from what the hash direction already
+-- confirmed.
+do
+    local plugin = fake_plugin()
+    while #shown > 0 do table.remove(shown) end
+    ProgressPaths.set_storage_mode("hash")
+    AnnPaths.set_storage_mode("hash")
+
+    local Settings = require("syncery_settings")
+    local real_dir = h.test_root .. "/reallib"
+    os.execute("mkdir -p '" .. real_dir .. "'")
+    local real_book = real_dir .. "/SilentlyResolved.epub"
+    write_file(real_book, "the book's actual content")
+    Settings.add_prefetch_path_rule("/peer/root/", real_dir .. "/")
+
+    local src_prog = h.test_root .. "/scan/silent_p.json"
+    write_file(src_prog, "progress-data")
+    local recorded_path = "/peer/root/SilentlyResolved.epub"   -- never exists here directly
+
+    StorageMode.perform_migration(plugin, {
+        { file = recorded_path, progress_path = src_prog,
+          annotations_path = h.test_root .. "/scan/silent_a.json" },
+          -- no book_id -- matching the real SDR-scan shape
+    })
+
+    h.assert_true(file_exists(ProgressPaths.shared_progress_path(real_book)),
+        "SILENT RESOLVE: migrated to the destination derived from the "
+        .. "REAL (rule-resolved) path, not the recorded (non-existent) one")
+    h.assert_true(plugin._activity[1] and plugin._activity[1].detail:match("1 migrated") ~= nil,
+        "SILENT RESOLVE: counted as migrated, not not-here")
+    h.assert_true(plugin._activity[1].detail:match("0 not here") ~= nil,
+        "SILENT RESOLVE: not-here count is zero -- no dialog needed, resolved silently")
+
+    ProgressPaths.set_storage_mode("sdr")
+    AnnPaths.set_storage_mode("sdr")
+end
+
+
 -- perform_migration CORRECT DESTINATION: a real book migrates to the
 -- destination derived from its REAL path, and the source is removed.  With the
 -- extension fix, book.file is the real ".epub" path, so the synceryhash hash is
