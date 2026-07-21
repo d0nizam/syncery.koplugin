@@ -56,6 +56,7 @@ local I18n          = require("syncery_i18n")
 local ScatteredMetadata = require("syncery_migration/scattered_metadata")
 local PluginSync    = require("syncery_transports/plugin_sync")
 local PrefetchLocate = require("syncery_ui/prefetch_locate")
+local Settings      = require("syncery_settings")
 
 local _  = I18n.translate
 local _n = I18n.ngettext
@@ -357,7 +358,9 @@ function StorageMode.perform_migration(plugin, books, on_complete)
                 -- locate picker would be pointless (it could never
                 -- confirm a match), so such books go straight to the
                 -- final "not here" count instead of into the resolve
-                -- flow below.
+                -- flow below. (Nothing to try silently either: with no
+                -- book.file at all, there is no peer_path to match
+                -- learned rules against.)
                 if book.book_id then
                     not_here_books[#not_here_books + 1] = book
                 end
@@ -368,9 +371,41 @@ function StorageMode.perform_migration(plugin, books, on_complete)
                 -- the moved files to a hash dir nothing else can find while
                 -- deleting the source — silent data loss.  If the book the
                 -- path names isn't there, do NOT move; leave the source intact.
-                not_here = not_here + 1
-                if book.book_id then
-                    not_here_books[#not_here_books + 1] = book
+                local silently_resolved = nil
+                if not book.book_id then
+                    -- No book_id (SDR-scan books never carry one -- see
+                    -- resolve_via_learned_rules_no_verify's own doc for
+                    -- why hash verification is not possible here at all).
+                    -- Still worth a SILENT try against rules the hash
+                    -- direction already learned+verified once: no new
+                    -- dialog, no new learning -- purely benefiting from
+                    -- what is already known. A prefix match here is a
+                    -- meaningfully weaker guarantee than a verified one,
+                    -- but the rule itself was hash-confirmed when it was
+                    -- first learned, and this only ever READS an
+                    -- already-existing file at the candidate path
+                    -- (migrate_one_book's own move_one is a plain file
+                    -- move, not a destructive overwrite), so a rare
+                    -- mismatch here costs a wrongly-placed sidecar, not
+                    -- data loss.
+                    local ok_rules, rules = pcall(Settings.get_prefetch_path_rules)
+                    if ok_rules and rules then
+                        silently_resolved =
+                            PluginSync.resolve_via_learned_rules_no_verify(book.file, rules)
+                    end
+                end
+                if silently_resolved then
+                    book.file = silently_resolved
+                    if migrate_one_book(lfs, book) == "migrated" then
+                        migrated = migrated + 1
+                    else
+                        already_there = already_there + 1
+                    end
+                else
+                    not_here = not_here + 1
+                    if book.book_id then
+                        not_here_books[#not_here_books + 1] = book
+                    end
                 end
             else
                 if migrate_one_book(lfs, book) == "migrated" then
