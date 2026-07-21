@@ -1,6 +1,6 @@
 # Test Suite
 
-133 spec files, all passing. No KOReader installation required — all
+137 spec files, all passing. No KOReader installation required — all
 platform modules are stubbed by the mock layer.
 
 ## Running
@@ -77,7 +77,7 @@ luajit spec/run_tests.lua
 ### Expected output
 
 ```
-Done: 133 spec(s) passed, 0 failed
+Done: 137 spec(s) passed, 0 failed
 ```
 
 ## Spec files
@@ -86,16 +86,16 @@ Done: 133 spec(s) passed, 0 failed
 |------|---------------|-------|
 | `annotation_state_store_device_agnostic_spec` | State-store JSON read/write round-trips with device-agnostic annotation keys | 11 |
 | `annotation_viewer_prefetch_spec` | Annotation viewer's handling of prefetch-staged (never-opened) books alongside genuinely-opened ones | 8 |
-| `book_enum_spec` | Book enumeration / ordering for the annotation browser | 6 |
+| `book_enum_spec` | Book enumeration / ordering for the annotation browser | 14 |
 | `booklist_actions_spec` | Book-list action dispatching, filtering, selection | 28 |
 | `booklist_init_spec` | Book-list initialisation and empty-state handling | 13 |
-| `booklist_scan_spec` | Book-list filesystem scan: directory traversal, metadata extraction, error paths | 79 |
+| `booklist_scan_spec` | Book-list filesystem scan: directory traversal, metadata extraction, error paths | 86 |
 | `bridge_spec` | DocSettings ↔ syncery bridge: read active document, refresh triggers, metadata extraction | 122 |
 | `bulk_ingest_spec` | Bulk ingestion of annotation/progress records | 44 |
 | `cloud_adapter_internals_spec` | Cloud adapter internal routing, state management | 20 |
 | `cloud_annotation_merge_callback_spec` | Cloud sync annotation merge callback contract | 41 |
 | `cloud_fallback_cross_device_spec` | End-to-end two-device test of the fallback (no Cloud Storage+) SyncService path, using a faithful fake matching the real upload-on-truthy-return contract | 11 |
-| `cloud_prefetch_spec` | Cloud prefetch: never-opened-book candidate discovery, per-kind staleness checks, download, and apply into canonical | 89 |
+| `cloud_prefetch_spec` | Cloud prefetch: never-opened-book candidate discovery, per-kind staleness checks, download, and apply into canonical | 90 |
 | `cloud_progress_merge_callback_spec` | Cloud sync progress merge callback contract | 38 |
 | `cloud_providers_spec` | Cloud provider enumeration, credential storage | 33 |
 | `cloud_quiet_toast_spec` | Cloud quiet-mode toast suppression | 13 |
@@ -148,9 +148,10 @@ Done: 133 spec(s) passed, 0 failed
 | `migration_all_books_e2e_spec` | End-to-end migration: all books path | 7 |
 | `migration_already_home_spec` | Migration: already-at-home detection | 11 |
 | `migration_matrix_spec` | Migration matrix: cross-version compatibility | 168 |
+| `migration_resolve_not_here_spec` | StorageMode.resolve_not_here_books: the iterative locate+learn flow for books whose path didn't resolve during bulk migration | 16 |
 | `migration_scattered_hook_spec` | Migration: scattered data with hook-based detection | 10 |
 | `migration_scattered_ui_spec` | Migration: scattered data with UI notification | 14 |
-| `migration_storage_mode_spec` | Migration: storage-mode transition | 59 |
+| `migration_storage_mode_spec` | Migration: storage-mode transition | 62 |
 | `move_file_size_verify_spec` | File move: size verification after copy | 8 |
 | `move_file_spec` | Atomic file move operations | 16 |
 | `mtime_gate_spec` | mtime-based gate: skip unchanged files | 19 |
@@ -162,13 +163,15 @@ Done: 133 spec(s) passed, 0 failed
 | `orphan_adapters_resolve_spec` | Orphan adapter resolution strategies | 19 |
 | `orphan_cleanup_names_spec` | Orphan cleanup: filename-based detection | 9 |
 | `orphan_cleanup_spec` | Orphan cleanup: full lifecycle | 96 |
-| `paths_spec` | Path construction, normalisation, validation | 48 |
+| `paths_spec` | Path construction, normalisation, validation | 51 |
+| `prefetch_locate_spec` | PrefetchLocate's pure functions: try_auto_resolve (learned-rule lookup) and verify_and_learn (hash-verify a picked file, learn a new rule) | 18 |
+| `prefetch_path_learning_spec` | Path-prefix rule learning: compute_path_prefix_rule (peer→local substitution, multi-level-up matching) and resolve_via_learned_rules (hash-verified, MRU-ready) | 29 |
 | `progress_aggregate_spec` | Progress Browser per-book aggregate (KOReader-recency): behind/even/neutral state, most-recent marker (by timestamp, not max %), freshness exclusion + fallback, epsilon honoured | 35 |
 | `progress_bridge_spec` | Progress bridge: KOReader ↔ syncery | 58 |
 | `progress_browser_prefetch_spec` | Progress Browser's handling of prefetch-staged (never-opened) book rows | 5 |
-| `progress_browser_show_integration_spec` | Progress Browser's full `.show()` integration — regular and prefetch-staged rows combined | 4 |
+| `progress_browser_show_integration_spec` | Progress Browser's full `.show()` integration — regular and prefetch-staged rows combined | 21 |
 | `progress_conflict_resolver_spec` | Progress conflict resolution + `merged_view` read-only fold + `resolve_all_at_path` destructive merge+delete | 49 |
-| `progress_enum_spec` | Progress Browser book enumeration: root set + progress-only dedup (annotations-only dropped, progress_path kept) | 9 |
+| `progress_enum_spec` | Progress Browser book enumeration: root set + progress-only dedup (annotations-only dropped, progress_path kept) | 18 |
 | `progress_jump_targets_spec` | Per-device jump-button selection (which devices get a button, when the most-recent button shows) | 17 |
 | `progress_load_shared_from_path_spec` | Progress state-store explicit-path reader (the Progress Browser's loader) + load_shared delegation contract | 10 |
 | `progress_merge_spec` | Core progress merge logic | 51 |
@@ -195,7 +198,7 @@ Done: 133 spec(s) passed, 0 failed
 | `syncery_db_sync_spec` | Statistics/Vocabulary sync trigger: gating, event dispatch, honesty surfacing | 43 |
 | `syncery_db_sync_unify_spec` | Point Statistics/Vocabulary plugins at Syncery's cloud server | 18 |
 | `syncery_debuglog_spec` | Verbose sync logging module: enabled/disabled gating, debug.txt rotation, MtimeGate wrap correctness | 18 |
-| `syncery_settings_spec` | Settings registry and persistence | 102 |
+| `syncery_settings_spec` | Settings registry and persistence | 122 |
 | `syncthing_config_xml_provider_spec` | Syncthing config.xml provider: parsing, folder discovery | 24 |
 | `syncthing_connection_probe_spec` | Syncthing connection probe and health check | 15 |
 | `syncthing_manual_provider_spec` | Syncthing manual config provider | 19 |
@@ -214,10 +217,11 @@ Done: 133 spec(s) passed, 0 failed
 | `trash_spec` | Trash management: move, restore, expire | 28 |
 | `update_spec` | Self-update from GitHub releases: version compare, install flow | 30 |
 | `v4_manifest_spec` | Per-device manifest generation/upload/download driving Cloud Sync-All's whole-library change detection | 16 |
+| `viewer_lifted_goto_button_spec` | Source-text guard: the goto-button's visibility condition includes is_prefetch_only/path_unresolved_here, not book_exists alone | 1 |
 | `viewer_source_annotations_path_spec` | Annotation browser: per-book annotations path resolution | 12 |
-| `viewer_source_spec` | Annotation browser data source: notes-for-book, filtering | 39 |
+| `viewer_source_spec` | Annotation browser data source: notes-for-book, filtering | 64 |
 | `wifi_backoff_spec` | Wi-Fi backoff: exponential backoff, cooldown, reset | 32 |
-| **Total** | | **5485** |
+| **Total** | | **5642** |
 
 ## Infrastructure
 
