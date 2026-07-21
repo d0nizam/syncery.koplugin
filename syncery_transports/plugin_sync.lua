@@ -1091,6 +1091,43 @@ function PluginSync.resolve_via_learned_rules(peer_path, target_book_id, rules)
 end
 
 
+--- Same prefix-matching as resolve_via_learned_rules, but WITHOUT the
+--- final content-id verification -- for callers that have no book_id to
+--- verify against at all (e.g. SDR-mode migration scanning, where the
+--- book_id would itself require reading the very file that is missing,
+--- see syncery_migration/storage_mode.lua's own comment on this
+--- asymmetry), yet can still benefit from a rule ALREADY hash-verified
+--- once, when it was first learned (see PrefetchLocate.verify_and_learn).
+--- A candidate is accepted purely on prefix match + existing-on-disk --
+--- weaker than resolve_via_learned_rules' guarantee, so callers must
+--- NEVER use this to silently overwrite/delete data (only to red an
+--- already-resolvable path where nothing would otherwise be found).
+---
+--- @return string|nil the candidate path, or nil if no rule's prefix
+---   matches or the resulting candidate does not exist on disk.
+function PluginSync.resolve_via_learned_rules_no_verify(peer_path, rules)
+    if type(peer_path) ~= "string" or peer_path == ""
+            or type(rules) ~= "table" then
+        return nil
+    end
+    local lfs = Util.get_lfs()
+    if not lfs then return nil end
+
+    for _, rule in ipairs(rules) do
+        local pp = type(rule) == "table" and rule.peer_prefix
+        local lp = type(rule) == "table" and rule.local_prefix
+        if type(pp) == "string" and pp ~= "" and type(lp) == "string"
+                and peer_path:sub(1, #pp) == pp then
+            local candidate = lp .. peer_path:sub(#pp + 1)
+            if lfs.attributes(candidate, "mode") == "file" then
+                return candidate
+            end
+        end
+    end
+    return nil
+end
+
+
 --- Constraints S/T (design), corrected during implementation: reuses the
 --- EXISTING unified dispatch (cloud/transport.lua's cloud_sync, reached
 --- via orch:pull_book), the exact same pattern the existing "manifest"
@@ -1585,7 +1622,7 @@ function PluginSync.sync_all(plugin, opts)
                 return
             end
 
-            -- 2b-prefetch. Remote-only books (never opened on this device)
+            -- 2b-prefetch. Remote-only books (never opened on this device) --
             -- Reuses THIS SAME `entries`
             -- listing (Constraint O/Q) -- no second network round-trip.
             -- Constraint V: staged under prefetch/, never the flat top
