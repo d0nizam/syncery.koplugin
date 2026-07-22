@@ -313,6 +313,41 @@ function ProgressBrowser.showBookDetail(plugin, book, state, agg, conflict_count
         buttons[#buttons + 1] = { device_button(fresh[dev_id], "\u{2192}") }  -- ->
     end
 
+    -- "Continue reading" -- jump to THIS device's own last-recorded
+    -- position, shown ONLY when the book is not currently open. That gate
+    -- matters: Merge.upsert_local_entry (syncery_progress/merge.lua) has
+    -- no "don't go backward" guard, so if the book WERE open, any save
+    -- (autosave or close) would unconditionally overwrite this exact
+    -- entry with the live session's own position -- silently erasing the
+    -- very value this button displays. With the book closed, there is no
+    -- live session to race against; the entry is stable until the user
+    -- taps this button themselves. Distinct from the per-device buttons
+    -- above, which jump_targets.lua deliberately excludes "self" from
+    -- (avoiding noisy false positives after routine reinstalls) -- this
+    -- is a separate, explicit action for continuing where THIS device
+    -- itself left off. Most useful after deleting and re-downloading the
+    -- same book (reported: github issue #16), but shown whenever there
+    -- is a position to resume, independent of whether other devices also
+    -- have positions (other_count is not consulted).
+    if not ProgressBrowser._is_book_open(book.book_path) then
+        local own = state.entries[plugin.device_id]
+        if type(own) == "table" and own.percent then
+            local oparts = {}
+            local opos = position_text(own)   -- "page N" for PDF; nil for EPUB
+            if opos then oparts[#oparts + 1] = opos end
+            oparts[#oparts + 1] = pct(own.percent)
+            oparts[#oparts + 1] = StatusUI._get_time_ago(own.timestamp)
+            buttons[#buttons + 1] = {
+                { text = "\u{2192} " .. _("Continue reading") .. " \u{00B7} "
+                    .. table.concat(oparts, " \u{00B7} "),
+                  callback = function()
+                      UIManager:close(dialog)
+                      ProgressBrowser._jumpToDevice(plugin, book, own, _("Continue reading"))
+                  end },
+            }
+        end
+    end
+
     if #buttons == 0 and not show_recent then
         header[#header + 1] = ""
         header[#header + 1] = _("No other device positions to jump to.")
