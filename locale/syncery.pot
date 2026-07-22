@@ -408,6 +408,10 @@ msgstr ""
 msgid "Continue"
 msgstr ""
 
+#: syncery_ui/progress_browser/init.lua
+msgid "Continue reading"
+msgstr ""
+
 #: syncery_ui/menu/maintenance_section.lua
 msgid "Copy diagnostic info"
 msgstr ""
