@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.2.2] — 2026-07-23
+
+### Added
+- **"Continue reading" in the Progress Browser.** Picking a book you don't
+  currently have open now also offers to jump back to where *this* device
+  itself last left off, alongside the existing per-device jumps. It covers
+  the case where a book's local reading position was reset but its synced
+  record wasn't — most often after deleting a book and downloading it again
+  (reported in issue #16). Deliberately limited to books that aren't open:
+  once a book is open, the live session overwrites that record, so there
+  would be nothing left to return to.
+
 ## [v1.2.1] — 2026-07-21
 
 

@@ -2,7 +2,7 @@
 
 <img src="assets/syncery.svg" alt="Syncery" />
 
-[![Release](https://img.shields.io/badge/release-v1.2.1-blue)](https://github.com/d0nizam/syncery.koplugin/releases)
+[![Release](https://img.shields.io/badge/release-v1.2.2-blue)](https://github.com/d0nizam/syncery.koplugin/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 ![Tests](https://img.shields.io/badge/tests-137%20passing-brightgreen)
 
@@ -52,7 +52,7 @@ Syncery keeps your reading life in step across every KOReader device — self-ho
 - **Works offline** — changes sync whenever your devices next reconnect; a device that's been offline for weeks keeps its place.
 - **Whole-library Sync Now** — one tap pushes and pulls every book with a pending change, not just the one you have open, and discovers books your other devices have synced that you've never opened here — their progress and annotations are prefetched, so they're ready the moment you do.
 - **Reading statistics & vocabulary** — automatically trigger KOReader's built-in Statistics and Vocabulary Builder plugins to sync their databases over your cloud storage, using the same periodic schedule. Syncery triggers the sync; the plugins handle the merge themselves.
-- **See everything in one place** — a **Progress Browser** shows how far each device has read in every book (and jumps you to any of them), and an **Annotation Browser** gathers all your highlights and notes across your whole library.
+- **See everything in one place** — a **Progress Browser** shows how far each device has read in every book (and jumps you to any of them, or back to where this device itself left off), and an **Annotation Browser** gathers all your highlights and notes across your whole library.
 
 For the exact fields and toggles, see [What Syncery syncs](#what-syncery-syncs); for how it's built, see [Architecture overview](#architecture-overview).
 
@@ -231,7 +231,7 @@ Syncery                                         ← top-level entry in ☰ → T
 │   ├── Configure Syncthing… ▸                  ← Set up API key… · Choose Syncthing folder · Test connection · Advanced (port)
 │   └── Cloud settings ▸                         ← pick destination · Clear destination · Check cloud settings · debounce window
 │
-├── Progress Browser                            ← how far every device has read in each book; jump to any device
+├── Progress Browser                            ← how far every device has read in each book; jump to any device, or continue where this one left off
 ├── Annotation Browser                          ← browse all synced highlights and notes across every book
 │
 ├── This book ▸                                 ← only when a document is open

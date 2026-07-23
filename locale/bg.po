@@ -425,6 +425,10 @@ msgstr "Размер на съдържанието: "
 msgid "Continue"
 msgstr "Продължи"
 
+#: syncery_ui/progress_browser/init.lua
+msgid "Continue reading"
+msgstr "Продължи четенето"
+
 #: syncery_ui/menu/maintenance_section.lua
 msgid "Copy diagnostic info"
 msgstr "Копиране на диагностична информация"
