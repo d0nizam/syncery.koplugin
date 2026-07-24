@@ -205,23 +205,45 @@ function StorageMode.resolve_not_here_books(not_here_books, on_done)
             return
         end
 
+        -- Pick the target BEFORE building the text, so the dialog can NAME
+        -- it. Previously the book was chosen inside ok_callback, leaving
+        -- the user to hunt through their library with no idea which book
+        -- they were being asked to point out -- unlike Progress/Annotation
+        -- Browser, where the user picked the row themselves a moment
+        -- earlier, here the choice is ours (remaining[1]), so saying which
+        -- one is on us.
+        local book  = remaining[1]
+        local pp    = peer_path_for_book(book)
+        local name  = book.display_name
+        if (not name or name == "") and type(pp) == "string" then
+            name = pp:match("([^/\\]+)$")
+        end
+        if not name or name == "" then name = _("this book") end
+        local others = #remaining - 1
+
+        local text
+        if others > 0 then
+            text = string.format(_n(
+                "Can't find %s. Point it out, and Syncery will look for the "
+                    .. "other %d book using the same folder pattern.",
+                "Can't find %s. Point it out, and Syncery will look for the "
+                    .. "other %d books using the same folder pattern.",
+                others), name, others)
+        else
+            text = string.format(_("Can't find %s. Point it out?"), name)
+        end
+
         local ConfirmBox = require("ui/widget/confirmbox")
         UIManager:show(ConfirmBox:new{
-            text = string.format(_n(
-                "%d book couldn't be found automatically. Point one out — "
-                    .. "Syncery will try to find the rest using the same folder pattern.",
-                "%d books couldn't be found automatically. Point one out — "
-                    .. "Syncery will try to find the rest using the same folder pattern.",
-                #remaining), #remaining),
-            ok_text = _("Point one out…"),
+            text = text,
+            ok_text = _("Point it out…"),
             ok_callback = function()
-                local book = table.remove(remaining, 1)
-                local pp = peer_path_for_book(book)
+                table.remove(remaining, 1)
                 PrefetchLocate.prompt(book.book_id, pp, function(path)
                     book.file = path
                     resolved[#resolved + 1] = book
                     step()   -- loop: retry auto-resolve for the rest with the new rule
-                end)
+                end, nil, name)
             end,
             cancel_text = _("Skip"),
             cancel_callback = function()
