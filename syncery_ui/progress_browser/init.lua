@@ -259,7 +259,7 @@ function ProgressBrowser._openRow(plugin, r)
         explain_text = _("This device doesn't have a position for this book yet.\n\n"
             .. "If you already have a copy of this book, point Syncery to it.")
     end
-    PrefetchLocate.prompt(book.book_id, book.peer_path, onResolved, explain_text)
+    PrefetchLocate.prompt(book.book_id, book.peer_path, onResolved, explain_text, book.title)
 end
 
 
