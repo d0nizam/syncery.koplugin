@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Syncery 1.2.1\n"
+"Project-Id-Version: Syncery 1.2.3\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 06:59+0000\n"
 "PO-Revision-Date: 2026-07-11 15:54+0300\n"
@@ -43,12 +43,6 @@ msgid "%d book already in the new location."
 msgid_plural "%d books already in the new location."
 msgstr[0] "%d книга вече е на новото местоположение."
 msgstr[1] "%d книги вече са на новото местоположение."
-
-#: syncery_migration/storage_mode.lua
-msgid "%d book couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
-msgid_plural "%d books couldn't be found automatically. Point one out — Syncery will try to find the rest using the same folder pattern."
-msgstr[0] "%d книга не може да бъде намерена автоматично. Посочи една — Syncery ще опита да намери останалите по същия папков модел."
-msgstr[1] "%d книги не могат да бъдат намерени автоматично. Посочи една — Syncery ще опита да намери останалите по същия папков модел."
 
 #: syncery_migration/storage_mode.lua
 msgid "%d book is not on this device — nothing was moved or deleted for it."
@@ -325,6 +319,16 @@ msgstr "Кн≠ "
 #: syncery_ui/annotation_viewer/viewer_lifted.lua
 msgid "C: "
 msgstr "Цв: "
+
+#: syncery_migration/storage_mode.lua
+msgid "Can't find %s. Point it out, and Syncery will look for the other %d book using the same folder pattern."
+msgid_plural "Can't find %s. Point it out, and Syncery will look for the other %d books using the same folder pattern."
+msgstr[0] "Не намирам %s. Посочи я и Syncery ще потърси другата %d книга по същия папков модел."
+msgstr[1] "Не намирам %s. Посочи я и Syncery ще потърси другите %d книги по същия папков модел."
+
+#: syncery_migration/storage_mode.lua
+msgid "Can't find %s. Point it out?"
+msgstr "Не намирам %s. Да я посочиш ли?"
 
 #: syncery_ui/annotation_viewer/viewer_lifted.lua
 #: syncery_ui/progress_browser/init.lua
@@ -1140,8 +1144,8 @@ msgid "Point Statistics and Vocabulary Builder at Syncery's own cloud server, so
 msgstr "Насочва „Статистика“ и „Речник“ към собствения облачен сървър на Синери, така че настройваш облака веднъж тук вместо във всеки плъгин.  Това променя sync настройките на тези плъгини; изключването след това оставя последния сървър.  Нужен е WebDAV или Dropbox сървър (FTP не може да синхронизира тези бази данни)."
 
 #: syncery_migration/storage_mode.lua
-msgid "Point one out…"
-msgstr "Посочи една…"
+msgid "Point it out…"
+msgstr "Посочи я…"
 
 #: syncery_ui/prefetch_locate.lua
 msgid "Point to it…"
@@ -1712,6 +1716,10 @@ msgstr "Докоснете, за да въведете API ключа за Synct
 #: syncery_ui/annotation_viewer/viewer_lifted.lua
 msgid "Text Margin: "
 msgstr "Отстъп на текста: "
+
+#: syncery_ui/prefetch_locate.lua
+msgid "That file's content doesn't match %s — likely a different edition or copy. Try a different file?"
+msgstr "Съдържанието на тоя файл не съвпада с %s — вероятно е друго издание или копие. Опитай с друг файл?"
 
 #: syncery_ui/prefetch_locate.lua
 msgid "That file's content doesn't match the synced book — likely a different edition or copy. Try a different file?"
@@ -2607,6 +2615,10 @@ msgstr "Главен превключвател за цялото синхрон
 #: syncery_ui/menu/transport_section.lua
 msgid "syncing"
 msgstr "синхронизира"
+
+#: syncery_migration/storage_mode.lua
+msgid "this book"
+msgstr "тази книга"
 
 #: syncery_ui/menu/transport_section.lua syncery_ui/status_panel.lua
 msgid "unsupported"
