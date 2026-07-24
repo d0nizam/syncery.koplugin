@@ -2771,7 +2771,8 @@ function AllNotesViewer:openBookAtNote(note)
                 explain_text = _("This device doesn't have a position for this book yet.\n\n"
                     .. "If you already have a copy of this book, point Syncery to it.")
             end
-            PrefetchLocate.prompt(note.book_id, note.peer_path, openAndGoto, explain_text)
+            PrefetchLocate.prompt(note.book_id, note.peer_path, openAndGoto, explain_text,
+                note.book_title)
             return
         end
         UIManager:show(InfoMessage:new{ text = _("Cannot find book path.") })
