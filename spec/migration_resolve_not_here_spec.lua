@@ -95,8 +95,10 @@ do
     StorageMode.resolve_not_here_books(books, function(resolved) done_with = resolved end)
 
     h.assert_equal(#shown_confirmboxes, 1, "one dialog shown, asking to locate")
-    h.assert_true(shown_confirmboxes[1].text:find("1 book couldn't be found", 1, true) ~= nil,
-        "dialog text names the count")
+    h.assert_true(shown_confirmboxes[1].text:find("p3.epub", 1, true) ~= nil,
+        "dialog text NAMES the book being asked for (falling back to the peer "
+        .. "path's basename when the book carries no display_name) -- the user "
+        .. "is not left hunting for an unnamed book")
 
     -- Simulate the user tapping "Skip" (cancel_callback).
     shown_confirmboxes[1].cancel_callback()
