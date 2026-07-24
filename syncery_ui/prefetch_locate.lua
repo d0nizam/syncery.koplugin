@@ -118,11 +118,31 @@ end
 ---   (path_unresolved_here) is a DIFFERENT situation and needs its own
 ---   wording -- callers pass it explicitly rather than this module
 ---   guessing which case it is.
-function PrefetchLocate.prompt(book_id, peer_path, on_opened, explain_text)
+--- @param title string|nil a human-readable name for the book being
+---   located, used to NAME it in the mismatch message ("doesn't match
+---   <title>") instead of the anonymous "the synced book". Falls back to
+---   peer_path's basename when omitted, so a caller that forgets still
+---   gets something recognisable -- the peer's own filename is usually
+---   the most identifiable thing the user has. Only if BOTH are absent
+---   does the anonymous wording remain.
+---
+---   Note the initial ConfirmBox deliberately does NOT show this: in
+---   Progress/Annotation Browser the user tapped a row whose title was
+---   on screen a moment earlier, so repeating it is noise. The mismatch
+---   message is different -- by then the user has been through a file
+---   picker, possibly more than once, and the title is long gone from
+---   the screen. Callers that pick the book THEMSELVES (migration's
+---   resolve_not_here_books) name it in their own explain_text instead.
+function PrefetchLocate.prompt(book_id, peer_path, on_opened, explain_text, title)
     local UIManager   = require("ui/uimanager")
     local ConfirmBox  = require("ui/widget/confirmbox")
     local PathChooser = require("ui/widget/pathchooser")
     local _           = require("gettext")
+
+    local shown = title
+    if (not shown or shown == "") and type(peer_path) == "string" then
+        shown = peer_path:match("([^/\\]+)$")
+    end
 
     local function open_picker()
         -- Most users' KOReader "Home folder" IS their book library root
@@ -148,9 +168,17 @@ function PrefetchLocate.prompt(book_id, peer_path, on_opened, explain_text)
                 if matched then
                     on_opened(selected_path)
                 else
+                    local mismatch
+                    if shown and shown ~= "" then
+                        mismatch = string.format(_(
+                            "That file's content doesn't match %s — "
+                            .. "likely a different edition or copy. Try a different file?"), shown)
+                    else
+                        mismatch = _("That file's content doesn't match the synced book — "
+                                     .. "likely a different edition or copy. Try a different file?")
+                    end
                     UIManager:show(ConfirmBox:new{
-                        text = _("That file's content doesn't match the synced book — "
-                                 .. "likely a different edition or copy. Try a different file?"),
+                        text        = mismatch,
                         ok_text     = _("Try again"),
                         ok_callback = open_picker,
                         cancel_text = _("Cancel"),
