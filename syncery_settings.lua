@@ -146,6 +146,19 @@ local function ds(key)
 end
 
 
+-- Cloud server descriptors are flat records of scalar values.  Always copy at
+-- the public settings boundary: KOReader cloud providers deliberately mutate
+-- their runtime `base` table (Dropbox replaces the refresh token with a
+-- short-lived access token), and neither callers nor readers may retain an
+-- alias to the persisted Syncery value.
+local function shallow_copy(value)
+    if type(value) ~= "table" then return nil end
+    local copy = {}
+    for key, item in pairs(value) do copy[key] = item end
+    return copy
+end
+
+
 -- ----------------------------------------------------------------------------
 -- Listeners.  Each listener registers for a specific transport_id (one
 -- of "syncthing"/"cloud") or "*" for all.  Fires after a
@@ -318,7 +331,7 @@ end
 function Settings.get_cloud_server()
     local v = gs(KEY_CLOUD_SERVER, nil)
     if type(v) ~= "table" then return nil end
-    return v
+    return shallow_copy(v)
 end
 
 
@@ -327,7 +340,7 @@ end
 --- contract is "whatever it hands back is loadable".
 function Settings.set_cloud_server(server)
     if type(server) ~= "table" then return false end
-    ss(KEY_CLOUD_SERVER, server)
+    ss(KEY_CLOUD_SERVER, shallow_copy(server))
     fire("cloud")
     return true
 end
