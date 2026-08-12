@@ -101,7 +101,13 @@ do
     }
     local stack = Transports.build({
         doc_id_fn = function() return "x" end,
-        ui_cloudstorage_resolver = function() return { sync = function() end } end,
+        ui_cloudstorage_resolver = function()
+            return {
+                sync = function() end,
+                servers = { { type = "ftp", url = "/" } },
+                providers = { ftp = {} },
+            }
+        end,
     })
     local s = stack:get_status()
     _G.G_reader_settings = saved  -- restore before asserting (no leak on failure)
