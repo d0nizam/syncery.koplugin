@@ -121,21 +121,19 @@ local dl_dir = "/tmp/cloud_prefetch_spec_dl_" .. tostring(os.time())
 os.execute("rm -rf " .. dl_dir)  -- ensure makePath's mkdir -p is exercised
 
 local fake_plugin = { state_dir = dl_dir .. "/" }
-local fake_server = { url = "https://example.invalid/dav" }
-
 do
-    -- Happy path: provider "downloads" valid JSON to whatever tmp_path
+    -- Happy path: the cloud I/O facade writes valid JSON to its temp path.
     -- _downloadAndValidate asked for.
-    local fake_provider = {
-        downloadFile = function(url, local_path)
+    local fake_cloud_io = {
+        download_cloud_file = function(_self, remote_name, local_path)
             local f = io.open(local_path, "wb")
             f:write('{"entries":{}}')
             f:close()
-            return 200
+            return true
         end,
     }
     local ok = PluginSync._downloadAndValidate(
-        fake_plugin, fake_provider, fake_server, "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "progress")
+        fake_plugin, fake_cloud_io, "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "progress")
     h.assert_true(ok, "happy-path download+validate succeeds")
     local final_path = dl_dir .. "/cloud_staging/prefetch/syncery-progress-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC.json"
     local f = io.open(final_path, "rb")
@@ -144,15 +142,15 @@ do
 end
 
 do
-    -- Non-200 response: no file should exist anywhere.
-    local fake_provider = {
-        downloadFile = function(url, local_path)
-            return 404
+    -- Failed facade response: no file should exist anywhere.
+    local fake_cloud_io = {
+        download_cloud_file = function()
+            return false, "rejected"
         end,
     }
     local ok = PluginSync._downloadAndValidate(
-        fake_plugin, fake_provider, fake_server, "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "progress")
-    h.assert_false(ok, "non-200 response rejected")
+        fake_plugin, fake_cloud_io, "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "progress")
+    h.assert_false(ok, "failed cloud I/O response rejected")
     local final_path = dl_dir .. "/cloud_staging/prefetch/syncery-progress-DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD.json"
     h.assert_true(io.open(final_path) == nil,
         "no final file for a failed download")
@@ -429,38 +427,34 @@ os.execute("rm -rf " .. ap_dir)
 
 do
     local calls = {}
-    local fake_orch = {
-        pull_book = function(_self, sentinel, opts, callback)
-            table.insert(calls, { sentinel = sentinel, payload = opts.payload })
-            if callback then callback({}) end
+    local fake_cloud_io = {
+        pull_cloud_prefetch = function(_self, book_id, kind, content)
+            table.insert(calls, {
+                book_id = book_id,
+                kind = kind,
+                content = content,
+            })
         end,
     }
-    -- pull_book is called as a method (orch:pull_book(...)); Lua's colon
-    -- syntax passes fake_orch itself as the first arg, so mimic that here.
-    PluginSync._prefetchViaFallback({ state_dir = "/tmp/" }, fake_orch,
+    PluginSync._prefetchViaFallback({ state_dir = "/tmp/" }, fake_cloud_io,
         "1234567890ABCDEF1234567890ABCDEF", "progress")
 
-    h.assert_equal(#calls, 1, "exactly one pull_book call for one kind")
-    h.assert_equal(calls[1].payload.kind, "progress",
+    h.assert_equal(#calls, 1, "exactly one semantic prefetch call for one kind")
+    h.assert_equal(calls[1].kind, "progress",
         "BUGFIX: kind is now the REAL "
         .. "\"progress\", matching the SAME remote cloud object a genuine "
         .. "peer push writes to -- the old \"prefetch_progress\" kind "
         .. "silently pointed at a cloud object no real push ever wrote to")
-    h.assert_true(calls[1].payload.is_prefetch == true,
-        "is_prefetch=true carries the prefetch-vs-canonical routing "
-        .. "signal instead of overloading the kind value")
-    h.assert_equal(calls[1].payload.book_id, "1234567890ABCDEF1234567890ABCDEF",
+    h.assert_equal(calls[1].book_id, "1234567890ABCDEF1234567890ABCDEF",
         "book_id passed through unchanged")
-    h.assert_true(type(calls[1].payload.content) == "string"
-        and calls[1].payload.content ~= "",
+    h.assert_true(type(calls[1].content) == "string"
+        and calls[1].content ~= "",
         "a non-empty bootstrap envelope string is provided as content")
 
-    PluginSync._prefetchViaFallback({ state_dir = "/tmp/" }, fake_orch,
+    PluginSync._prefetchViaFallback({ state_dir = "/tmp/" }, fake_cloud_io,
         "1234567890ABCDEF1234567890ABCDEF", "annotations")
-    h.assert_equal(calls[2].payload.kind, "annotations",
+    h.assert_equal(calls[2].kind, "annotations",
         "annotations kind is passed through as the REAL remote kind too")
-    h.assert_true(calls[2].payload.is_prefetch == true,
-        "is_prefetch=true on the annotations call too")
 end
 
 
@@ -522,79 +516,6 @@ end
 
 os.execute("rm -rf " .. ui_dir)
 
-
--- ── _listFolderShowingUnsupported (real-device bug: WebDav.listFolder's ──
--- ── hasProvider filter silently drops .json entries) ─────────────────────
-
--- Fake G_reader_settings: tracks the value across the call, and lets
--- the test see exactly what the provider's listFolder saw at call time.
-local function make_fake_gset(initial)
-    local value = initial
-    return {
-        isTrue = function(_self, key)
-            if key == "show_unsupported" then return value == true end
-            return false
-        end,
-        saveSetting = function(_self, key, v)
-            if key == "show_unsupported" then value = v end
-        end,
-        _get = function() return value end,
-    }
-end
-
-do
-    -- Case 1: originally false -- must be true DURING the call, restored
-    -- to false after.
-    local gset = make_fake_gset(false)
-    local seen_during_call
-    local fake_provider = {
-        listFolder = function(_url, _incl)
-            seen_during_call = gset:_get()
-            return { { text = "syncery-progress-ABC.json" } }
-        end,
-    }
-    local ok, entries = PluginSync._listFolderShowingUnsupported(
-        gset, fake_provider, "https://example.invalid/dav", true)
-    h.assert_true(ok, "call succeeds")
-    h.assert_true(seen_during_call == true,
-        "show_unsupported is true DURING the listFolder call")
-    h.assert_true(gset:_get() == false,
-        "show_unsupported is restored to its original (false) value after")
-    h.assert_equal(#entries, 1, "entries are returned through unchanged")
-end
-
-do
-    -- Case 2: originally true -- must remain true after (restoring "the
-    -- original value", not unconditionally flipping back to false).
-    local gset = make_fake_gset(true)
-    local fake_provider = { listFolder = function() return {} end }
-    PluginSync._listFolderShowingUnsupported(gset, fake_provider, "https://x", true)
-    h.assert_true(gset:_get() == true,
-        "show_unsupported stays true when that was the original value")
-end
-
-do
-    -- Case 3: listFolder itself errors -- restore must still happen
-    -- (pcall-protected), not left toggled on because of the error.
-    local gset = make_fake_gset(false)
-    local fake_provider = {
-        listFolder = function() error("simulated network failure") end,
-    }
-    local ok, err = PluginSync._listFolderShowingUnsupported(
-        gset, fake_provider, "https://x", true)
-    h.assert_false(ok, "the underlying error is reported, not swallowed silently")
-    h.assert_true(gset:_get() == false,
-        "show_unsupported is still restored even when listFolder raises")
-end
-
-do
-    -- No G_reader_settings available (headless/edge case) -- must not raise.
-    local fake_provider = { listFolder = function() return { { text = "x" } } end }
-    local ok_call, ok, entries = pcall(PluginSync._listFolderShowingUnsupported,
-        nil, fake_provider, "https://x", true)
-    h.assert_true(ok_call, "a nil gset does not raise")
-    h.assert_true(ok, "the call still succeeds with a nil gset")
-end
 
 -- ── _ensure_parent_dir (real-device bug, tested in true isolation from ──
 -- ── the docsettings stub's own directory-creating side effect) ──────────
