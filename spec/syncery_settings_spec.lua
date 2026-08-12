@@ -120,7 +120,7 @@ end
 -- Interval SETTER: round-trips a valid value, floors fractional input, clamps
 -- the floor to 1, and rejects non-numbers (returns nil, stores nothing).
 do
-    with_backend()
+    local b = with_backend()
     h.assert_equal(Settings.set_db_sync_interval_min(20), 20, "set returns the stored interval")
     h.assert_equal(Settings.get_db_sync_interval_min(), 20, "interval round-trips")
     h.assert_equal(Settings.set_db_sync_interval_min(3.9), 3, "fractional input floored")
@@ -329,19 +329,27 @@ end
 
 
 do
-    with_backend()
+    local b = with_backend()
     h.assert_nil(Settings.get_cloud_server(), "no server by default")
     h.assert_false(Settings.is_cloud_configured(), "not configured by default")
 
     local server = { type = "dropbox", url = "https://api.dropboxapi.com" }
     local ok = Settings.set_cloud_server(server)
     h.assert_true(ok, "set_cloud_server returned true")
+    server.url = "/mutated-by-caller"
+    h.assert_equal(b._store.syncery_cloud_server.url,
+        "https://api.dropboxapi.com",
+        "set_cloud_server stores a defensive copy")
 
     local got = Settings.get_cloud_server()
     h.assert_true(type(got) == "table", "round-trip returns a table")
     h.assert_equal(got.type, "dropbox", "server.type preserved")
     h.assert_equal(got.url,  "https://api.dropboxapi.com",
         "server.url preserved")
+    got.url = "/mutated-after-read"
+    h.assert_equal(Settings.get_cloud_server().url,
+        "https://api.dropboxapi.com",
+        "get_cloud_server returns a defensive copy")
 
     h.assert_true(Settings.is_cloud_configured(),
         "configured once a valid server table is set")
