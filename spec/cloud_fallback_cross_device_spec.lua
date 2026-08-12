@@ -44,7 +44,7 @@ local PluginSync          = require("syncery_transports/plugin_sync")
 local cjson                = require("rapidjson")
 
 local TEST_BOOK_ID = "ABCDEF0123456789ABCDEF0123456789"
-local SERVER = { type = "webdav", kind = "webdav" }
+local SERVER = { type = "webdav", kind = "webdav", url = "/Syncery" }
 
 
 -- ----------------------------------------------------------------------------
@@ -132,15 +132,19 @@ local function make_device_transport(local_root, shared_svc)
 end
 
 
---- Minimal fake orchestrator: just enough of Orchestrator:pull_book's
---- shape for _prefetchViaFallback to drive a SINGLE transport and get
---- an aggregated result back.
-local function make_fake_orch(transport)
+--- Minimal fake Cloud I/O facade: drives a SINGLE transport with the same
+--- semantic prefetch payload Bridge produces in production.
+local function make_fake_cloud_io(transport)
     return {
-        pull_book = function(_self, book_file, opts, callback)
-            transport.pull(book_file, opts, function(ok, err, payload)
-                callback({ syncservice = { ok = ok, err = err, payload = payload } })
-            end)
+        pull_cloud_prefetch = function(_self, book_id, kind, content)
+            transport.pull("__prefetch__", {
+                payload = {
+                    kind = kind,
+                    book_id = book_id,
+                    content = content,
+                    is_prefetch = true,
+                },
+            }, function() end)
         end,
     }
 end
@@ -178,8 +182,8 @@ do
         .. "confirming the push went to the correct cloud object")
 
     -- ── Device B: never opened this book, prefetches it ───────────────
-    local fake_orch_b = make_fake_orch(device_b)
-    PluginSync._prefetchViaFallback({ state_dir = root_b .. "/" }, fake_orch_b,
+    local fake_cloud_io_b = make_fake_cloud_io(device_b)
+    PluginSync._prefetchViaFallback({ state_dir = root_b .. "/" }, fake_cloud_io_b,
         TEST_BOOK_ID, "progress")
 
     -- BUGFIX 1 (wrong remote object name): device B's prefetch must have
@@ -242,8 +246,8 @@ do
     }, function(ok) a_ok = ok end)
     h.assert_true(a_ok, "device A's annotations push dispatches successfully")
 
-    local fake_orch_b = make_fake_orch(device_b)
-    PluginSync._prefetchViaFallback({ state_dir = root_b .. "/" }, fake_orch_b,
+    local fake_cloud_io_b = make_fake_cloud_io(device_b)
+    PluginSync._prefetchViaFallback({ state_dir = root_b .. "/" }, fake_cloud_io_b,
         TEST_BOOK_ID, "annotations")
 
     local prefetched_path = root_b .. "/prefetch/syncery-annotations-" .. TEST_BOOK_ID .. ".json"
