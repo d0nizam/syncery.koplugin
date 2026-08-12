@@ -110,7 +110,9 @@ local function valid_settings()
         -- Real syncservice server objects carry `type` (verified 18.10: dropbox
         -- is {name,password,address,url,type}). The transport's provider
         -- validation (F1) keys off `type`.
-        syncery_cloud_server    = { type = "dropbox", kind = "dropbox" },
+        syncery_cloud_server    = {
+            type = "dropbox", kind = "dropbox", url = "/Syncery",
+        },
     }
 end
 
@@ -213,7 +215,9 @@ do
         settings_reader = settings_for({
             syncery_use_cloud      = false,
             syncery_sync_via_cloud = true,   -- stale mirror, must be IGNORED
-            syncery_cloud_server   = { type = "dropbox", kind = "dropbox" },
+            syncery_cloud_server   = {
+                type = "dropbox", kind = "dropbox", url = "/Syncery",
+            },
         }),
     })
     h.assert_false(t.is_available(),
@@ -257,7 +261,8 @@ end
 
 do  -- unsupported: ftp, available provider that can't sync ftp
     local t = Transport.new({ settings_reader = settings_for({
-        syncery_use_cloud = true, syncery_cloud_server = { type = "ftp", kind = "ftp" } }),
+        syncery_use_cloud = true,
+        syncery_cloud_server = { type = "ftp", kind = "ftp", url = "/Syncery" } }),
         select_provider = make_fake_provider().selector })
     local s = t.status()
     h.assert_equal(s.state, "unsupported", "state: ftp on syncservice -> unsupported")
@@ -542,7 +547,9 @@ do
     local t = Transport.new({
         settings_reader = settings_for({
             syncery_use_cloud = true,
-            syncery_cloud_server   = { type = "webdav", kind = "webdav" },
+            syncery_cloud_server   = {
+                type = "webdav", kind = "webdav", url = "/Syncery",
+            },
         }),
         select_provider = make_fake_provider().selector,
     })
@@ -556,7 +563,9 @@ do
     local t = Transport.new({
         settings_reader = settings_for({
             syncery_use_cloud = true,
-            syncery_cloud_server   = { type = "ftp", kind = "ftp" },
+            syncery_cloud_server   = {
+                type = "ftp", kind = "ftp", url = "/Syncery",
+            },
         }),
         select_provider = make_fake_provider().selector,
     })
@@ -612,7 +621,7 @@ do
     local t = Transport.new({
         settings_reader = settings_for({
             syncery_use_cloud = true,
-            syncery_cloud_server   = { type = "ftp" },
+            syncery_cloud_server   = { type = "ftp", url = "/Syncery" },
         }),
         select_provider = prov.selector,
         file_writer     = fs.writer,
