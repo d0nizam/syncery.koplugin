@@ -28,6 +28,7 @@ local Stignore = require("syncery_transports/stignore")
 local function make_fake_orch()
     local rec = {
         calls = {},
+        pull_calls = {},
         shutdown_called = 0,
         status_value = {},
         -- transport_id → fake transport table.  Bridge calls
@@ -43,11 +44,90 @@ local function make_fake_orch()
                 caller_opts = caller_opts,
             })
         end,
+        pull_book = function(_self, file, opts, callback)
+            table.insert(rec.pull_calls, { file = file, opts = opts })
+            if callback then callback({ cloud = { ok = true } }) end
+        end,
         get_status     = function(_self) return rec.status_value end,
         shutdown       = function(_self) rec.shutdown_called = rec.shutdown_called + 1 end,
         find_transport = function(_self, id) return rec.transports[id] end,
     }
     return rec
+end
+
+
+-- ----------------------------------------------------------------------------
+-- Cloud operations stay behind the Bridge facade.
+-- ----------------------------------------------------------------------------
+
+
+do
+    local fake = make_fake_orch()
+    local seen = {}
+    fake.transports.cloud = {
+        cloud_direct_available = function() return true end,
+        cloud_list_folder = function(include_folders)
+            seen.include_folders = include_folders
+            return { { text = "syncery-manifest-peer.txt" } }
+        end,
+        cloud_upload_file = function(path) seen.upload = path; return true end,
+        cloud_download_file = function(name, path)
+            seen.download = { name, path }; return true
+        end,
+    }
+    local bridge = Bridge.new({ orchestrator = fake.orch })
+
+    h.assert_true(bridge:cloud_direct_available(), "direct capability delegated")
+    local entries = bridge:list_cloud_folder(true)
+    h.assert_equal(#entries, 1, "cloud listing delegated")
+    h.assert_true(seen.include_folders, "include_folders forwarded")
+    h.assert_true(bridge:upload_cloud_file("/tmp/syncery-manifest-me.txt"),
+        "cloud upload delegated")
+    h.assert_true(bridge:download_cloud_file(
+        "syncery-manifest-peer.txt", "/tmp/peer.txt"),
+        "cloud download delegated")
+    h.assert_equal(seen.download[1], "syncery-manifest-peer.txt",
+        "remote filename forwarded")
+end
+
+
+do
+    local fake = make_fake_orch()
+    local bridge = Bridge.new({ orchestrator = fake.orch })
+    local available, err = bridge:cloud_direct_available()
+    h.assert_false(available, "missing cloud transport has no direct I/O")
+    h.assert_equal(err, "not_available", "missing cloud transport is classified")
+    h.assert_nil(bridge:list_cloud_folder(true), "missing cloud listing returns nil")
+end
+
+
+do
+    local fake = make_fake_orch()
+    fake.transports.cloud = { is_available = function() return true end }
+    local bridge = Bridge.new({ orchestrator = fake.orch })
+
+    h.assert_true(bridge:push_cloud_manifest("DEVICE_A", "{\"files\":{}}"),
+        "semantic manifest push dispatched")
+    local pushed = fake.calls[#fake.calls]
+    h.assert_equal(pushed.file, "__manifest__", "manifest sentinel used")
+    h.assert_equal(pushed.opts.payload.kind, "manifest", "manifest kind forwarded")
+    h.assert_true(pushed.caller_opts.force.cloud,
+        "manifest force is scoped to cloud")
+
+    local callback_seen = false
+    h.assert_true(bridge:pull_cloud_manifest("DEVICE_B", "{}", function()
+        callback_seen = true
+    end), "semantic manifest pull dispatched")
+    local pulled = fake.pull_calls[#fake.pull_calls]
+    h.assert_equal(pulled.file, "__manifest__", "manifest pull sentinel used")
+    h.assert_equal(pulled.opts.payload.book_id, "DEVICE_B", "peer id forwarded")
+    h.assert_true(callback_seen, "manifest pull callback forwarded")
+
+    bridge:pull_cloud_prefetch("BOOK_ID", "progress", "{\"entries\":{}}")
+    local prefetch = fake.pull_calls[#fake.pull_calls]
+    h.assert_equal(prefetch.file, "__prefetch__", "prefetch sentinel used")
+    h.assert_true(prefetch.opts.payload.is_prefetch,
+        "prefetch routing bit added inside Bridge")
 end
 
 
