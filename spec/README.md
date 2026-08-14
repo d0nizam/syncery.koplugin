@@ -1,6 +1,6 @@
 # Test Suite
 
-137 spec files, all passing. No KOReader installation required — all
+139 spec files, all passing. No KOReader installation required — all
 platform modules are stubbed by the mock layer.
 
 ## Running
@@ -77,7 +77,7 @@ luajit spec/run_tests.lua
 ### Expected output
 
 ```
-Done: 137 spec(s) passed, 0 failed
+Done: 139 spec(s) passed, 0 failed
 ```
 
 ## Spec files

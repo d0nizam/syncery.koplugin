@@ -16,9 +16,10 @@
 --
 -- CLOUD PROVIDER LAYER
 --
--- The transport does not talk to SyncService directly.  It consumes a
--- cloud PROVIDER (syncery_transports/cloud/providers/) resolved by
--- CloudProviders.select.  There is ONE backend — hius07's "Cloud storage+"
+-- The transport does not talk to SyncService directly and does not own cloud
+-- credentials. It consumes a CloudSession, which resolves the provider and
+-- owns the private executable server copy. There is ONE primary backend —
+-- hius07's "Cloud storage+"
 -- plugin (ui.cloudstorage:sync, the canonical SyncService since
 -- koreader#9709) — with the built-in syncservice as an invisible automatic
 -- fallback when the plugin is disabled (no user choice; see providers/init).
@@ -41,11 +42,12 @@
 --
 -- INJECTED DEPENDENCIES
 --
--- Tests pass:
---   • settings_reader   — for the configured `server` object + provider id
---   • select_provider   — function(opts) → selection; defaults to the real
---                         CloudProviders.select.  Tests inject a fake to
---                         drive the transport against a fake provider.
+-- Production passes:
+--   • session           — the one long-lived CloudSession for this stack.
+-- Direct transport tests may still pass settings_reader/select_provider; the
+-- constructor wraps them in a compatibility CloudSession.
+--   • select_provider   — function(opts) → selection used by that compatibility
+--                         session.
 --   • ui_cloudstorage_resolver — function() → ui.cloudstorage|nil; threaded
 --                         to the selector so the cloudstorage backend can be
 --                         reached (the "Cloud storage+" plugin).
@@ -79,7 +81,7 @@
 local Interface         = require("syncery_transports/interface")
 local Staging           = require("syncery_transports/cloud/staging")
 local SyncServiceAdapter = require("syncery_transports/cloud/sync_service_adapter")
-local CloudProviders    = require("syncery_transports/cloud/providers/init")
+local CloudSession      = require("syncery_transports/cloud/session")
 local StorageMode       = require("syncery_storage_mode")
 local AnnPaths          = require("syncery_ann/paths")
 local ProgressPaths     = require("syncery_progress/paths")
@@ -96,21 +98,11 @@ local Transport = {}
 
 
 local TRANSPORT_ID  = "cloud"
--- COLLAPSED: same canonical key the checkbox + wizard write (was the
--- redundant `syncery_sync_via_cloud` mirror) so is_available() can't diverge.
-local TOGGLE_KEY    = "syncery_use_cloud"
-local KEY_SERVER    = "syncery_cloud_server"
 
 
 -- ----------------------------------------------------------------------------
 -- Defaults.
 -- ----------------------------------------------------------------------------
-
-
-local function default_settings_reader(key)
-    if not _G.G_reader_settings then return nil end
-    return _G.G_reader_settings:readSetting(key)
-end
 
 
 local function default_file_writer(path, content)
@@ -163,22 +155,42 @@ end
 
 function Transport.new(opts)
     opts = opts or {}
-    local settings_reader = opts.settings_reader or default_settings_reader
     local file_writer     = opts.file_writer     or default_file_writer
     local staging_dir_fn  = opts.staging_dir_fn  or default_staging_dir
     local ensure_dir      = opts.ensure_dir      or default_ensure_dir
 
-    -- Provider selection.  The transport consumes a
-    -- cloud PROVIDER instead of a hard-coded SyncService adapter.  In
-    -- production `select_provider` is the real CloudProviders.select, which
-    -- resolves the "Cloud storage+" plugin as THE backend (with the built-in
-    -- syncservice as an invisible fallback when the plugin is off — no user
-    -- choice).  Tests inject a fake selector (or a fake sync_service threaded
-    -- through the real selector) to drive the transport without touching the
-    -- network or the real syncservice.
-    local select_provider          = opts.select_provider or CloudProviders.select
-    local ui_cloudstorage_resolver = opts.ui_cloudstorage_resolver
-    local sync_service             = opts.sync_service  -- test injection (syncservice fallback)
+    -- Production injects the one CloudSession built by the transport factory.
+    -- The compatibility construction below keeps direct transport specs and
+    -- third-party callers working while still routing every operation through
+    -- a session.  Its settings adapter returns defensive copies.
+    local session = opts.session
+    if not session then
+        local settings_reader = opts.settings_reader or function(key)
+            return _G.G_reader_settings and _G.G_reader_settings:readSetting(key)
+        end
+        local settings_api = {
+            get_cloud_enabled = function()
+                return settings_reader("syncery_use_cloud") == true
+            end,
+            get_cloud_server = function()
+                local server = settings_reader("syncery_cloud_server")
+                if type(server) ~= "table" then return nil end
+                local copy = {}
+                for key, value in pairs(server) do copy[key] = value end
+                return copy
+            end,
+            on_change = function() return function() end end,
+        }
+        session = CloudSession.new({
+            settings_api = settings_api,
+            select_provider = opts.select_provider,
+            ui_cloudstorage_resolver = opts.ui_cloudstorage_resolver,
+            sync_service = opts.sync_service,
+            now = opts.now,
+            global_settings = opts.global_settings,
+        })
+    end
+    assert(type(session) == "table", "Cloud Transport requires a session")
     -- Optional hook fired when the cloud server RESPONDS to a sync (the merge
     -- callback running == the provider downloaded the remote object == the
     -- server is reachable).  Production wires this to
@@ -187,81 +199,21 @@ function Transport.new(opts)
     local on_server_responded      = opts.on_server_responded
     local on_reconciled            = opts.on_reconciled
 
-    --- Resolve the active provider + selection metadata for THIS call.
-    --- Cheap: building a provider object is just closures, and each
-    --- provider's is_available() is memoised/lazy.  Re-resolving per
-    --- operation means enabling/disabling the "Cloud storage+" plugin takes
-    --- effect without rebuilding the transport, and status() always reports
-    --- the live active backend + fallback state.
-    ---@return table selection { provider, active_id, fell_back }
-    local function resolve_provider()
-        return select_provider({
-            ui_cloudstorage_resolver = ui_cloudstorage_resolver,
-            sync_service             = sync_service,
-        })
-    end
-
     local t = {}
 
     function t.id() return TRANSPORT_ID end
     function t.display_name() return "Cloud" end
     function t.is_eventually_consistent() return true end
 
-    -- Provider validation (F1): a cloud server is "syncable" only if the
-    -- ACTIVE provider can actually sync its type.  Syncservice syncs only
-    -- {dropbox, webdav} (it rejects FTP with "Wrong server type");
-    -- cloudstorage adds ftp.  We ask the provider's syncable_providers()
-    -- instead of a hard-coded list, so the "is this picked server
-    -- syncable?" check follows the ACTIVE backend.  A picked-but-
-    -- unsyncable server surfaces as NOT_CONFIGURED / the structured
-    -- `unsupported_provider` status flag rather than a false ready state.
-    local function server_is_syncable(server, provider)
-        if type(server) ~= "table" or type(server.type) ~= "string" then
-            return false
-        end
-        local syncable = provider.syncable_providers()
-        return type(syncable) == "table" and syncable[server.type] == true
-    end
-
-    --- CANONICAL cloud state against an ALREADY-RESOLVED provider — the single
-    --- source of truth every consumer switches on, so no one re-derives
-    --- per-protocol/per-server nuances:
-    ---   "disabled"    — master toggle off
-    ---   "no_server"   — toggle on, no destination picked yet
-    ---   "no_backend"  — server picked, but NO cloud backend can dispatch it
-    ---                   (neither "Cloud storage+" nor the built-in syncservice
-    ---                   is present) — the fix is to install/enable a backend,
-    ---                   not to re-pick the destination
-    ---   "unsupported" — a backend IS present but can't sync THIS server type
-    ---                   (e.g. FTP on the built-in syncservice)
-    ---   "ready"       — enabled, server picked, and a backend can sync it
-    --- This is config/syncability only — NOT network reachability (a separate,
-    --- async concern handled by the reachability layer).
-    local function provider_state(provider)
-        if not settings_reader(TOGGLE_KEY) then return "disabled" end
-        local server = settings_reader(KEY_SERVER)
-        if type(server) ~= "table" then return "no_server" end
-        if not (provider and provider.is_available()) then return "no_backend" end
-        if not server_is_syncable(server, provider) then return "unsupported" end
-        return "ready"
-    end
-
-    --- Availability against an ALREADY-RESOLVED provider: ready iff state=="ready".
-    local function is_available_with(provider)
-        return provider_state(provider) == "ready"
-    end
-
     function t.is_available()
-        local sel = resolve_provider()
-        return is_available_with(sel.provider)
+        return session:is_available()
     end
 
     --- Common preamble: extract payload, build the cloud name + staging
-    --- path, ensure the staging directory exists, resolve the server.
-    --- Takes the ALREADY-RESOLVED provider so the syncable check follows
-    --- the active backend.  Returns (path, server, kind) on success, or
+    --- path, and ensure the staging directory exists. Returns (path, kind)
+    --- on success, or
     --- (nil, err_class).
-    local function _prepare(opts_in, provider)
+    local function _prepare(opts_in)
         local payload = opts_in and opts_in.payload or opts_in
         if type(payload) ~= "table" then
             return nil, Interface.ERRORS.REJECTED
@@ -283,14 +235,7 @@ function Transport.new(opts)
         end
 
         local path = Staging.staging_path_for(staging_dir, cloud_name)
-        local server = settings_reader(KEY_SERVER)
-        if not server_is_syncable(server, provider) then
-            -- Either nothing picked, or a provider the active backend
-            -- can't sync (e.g. FTP on syncservice). Both are "not configured
-            -- for sync" (F1).
-            return nil, Interface.ERRORS.NOT_CONFIGURED
-        end
-        return path, server, kind
+        return path, kind
     end
 
     --- Build the kind-appropriate merge callback for SyncService. The
@@ -433,14 +378,10 @@ function Transport.new(opts)
     --- a file the backend only writes via the callback): that shape was
     --- unsound under the real model.
     local function cloud_sync(book_file, sync_opts, callback)
-        -- Resolve the active provider ONCE and thread it through the
-        -- availability check, the syncable check (_prepare), and dispatch,
-        -- so all three agree on a single backend for this call.
-        local sel = resolve_provider()
-        local provider = sel.provider
-
-        if not is_available_with(provider) then
-            callback(false, Interface.ERRORS.NOT_AVAILABLE, nil); return
+        local available, availability_err = session:is_available()
+        if not available then
+            callback(false, availability_err or Interface.ERRORS.NOT_AVAILABLE, nil)
+            return
         end
 
         local payload = sync_opts and sync_opts.payload
@@ -449,9 +390,9 @@ function Transport.new(opts)
             callback(false, Interface.ERRORS.REJECTED, nil); return
         end
 
-        local path, server_or_err, kind = _prepare(sync_opts, provider)
-        if not path then callback(false, server_or_err, nil); return end
-        local server = server_or_err
+        local path, kind_or_err = _prepare(sync_opts)
+        if not path then callback(false, kind_or_err, nil); return end
+        local kind = kind_or_err
 
         -- 1) Stage this device's canonical content to disk. The backend
         -- uploads whatever the merge callback leaves here; staging the real
@@ -481,15 +422,9 @@ function Transport.new(opts)
                 return _raw_merge_cb(...)
             end
         end
-        local ok_call, call_err = pcall(function()
-            provider.sync(server, path, merge_cb, function(ok, err)
-                callback(ok, err, nil)
-            end)
+        session:sync(path, merge_cb, function(ok, err)
+            callback(ok, err, nil)
         end)
-        if not ok_call then
-            log.warn("provider sync raised: %s", tostring(call_err))
-            callback(false, Interface.ERRORS.INTERNAL, nil)
-        end
     end
 
     -- push and pull both map onto the single bidirectional cloud_sync.
@@ -511,8 +446,10 @@ function Transport.new(opts)
         -- could touch the cloud copy.
         local payload = (pull_opts and pull_opts.payload) or pull_opts
         if type(payload) ~= "table" or type(payload.content) ~= "string" then
-            if not t.is_available() then
-                callback(false, Interface.ERRORS.NOT_AVAILABLE, nil); return
+            local available, availability_err = session:is_available()
+            if not available then
+                callback(false, availability_err or Interface.ERRORS.NOT_AVAILABLE, nil)
+                return
             end
             callback(true, nil, nil); return
         end
@@ -520,42 +457,29 @@ function Transport.new(opts)
     end
 
     function t.status()
-        local sel      = resolve_provider()
-        local provider = sel.provider
-        local server   = settings_reader(KEY_SERVER)
-        -- ONE canonical verdict; available / summary / the structured flags all
-        -- derive from it, so no consumer re-combines toggle/server/backend/
-        -- syncability itself.
-        local state    = provider_state(provider)
-        local summary  = ({
-            disabled    = "disabled (toggle off)",
-            no_server   = "not configured (cloud server not picked)",
-            no_backend  = "no cloud backend available (enable \"Cloud storage+\")",
-            unsupported = string.format(
-                "provider not supported for sync (%s); use Dropbox or WebDAV",
-                tostring(type(server) == "table" and server.type or "?")),
-            ready       = "ready (uploads dispatched in background)",
-        })[state]
-        return {
-            display_name        = "Cloud",
-            -- THE canonical state; new consumers switch on this.
-            state               = state,
-            available           = state == "ready",
-            summary             = summary,
-            -- Back-compat structured flags, DERIVED from `state` so existing
-            -- consumers keep working; prefer switching on `state` going forward.
-            unsupported_provider = (state == "unsupported") or nil,
-            backend_unavailable  = (state == "no_backend") or nil,
-            provider_type       = (type(server) == "table") and server.type or nil,
-            -- The active cloud backend id, and whether the "Cloud storage+"
-            -- plugin was unavailable so we fell back to the built-in
-            -- syncservice. Consumed by the status panel (fallback note only);
-            -- only claimed when the fallback backend actually works, so the
-            -- note can't contradict a no_backend verdict.
-            cloud_provider      = sel.active_id,
-            provider_fell_back  = (sel.fell_back and state ~= "no_backend")
-                                  or nil,
-        }
+        return session:status()
+    end
+
+    -- Narrow optional capabilities consumed through Bridge.  They delegate
+    -- operations only; the private session and its runtime never escape.
+    function t.cloud_direct_available()
+        return session:direct_file_io_available()
+    end
+
+    function t.cloud_list_folder(include_folders)
+        return session:list_folder(include_folders)
+    end
+
+    function t.cloud_upload_file(local_path)
+        return session:upload_file(local_path)
+    end
+
+    function t.cloud_download_file(remote_name, local_path)
+        return session:download_file(remote_name, local_path)
+    end
+
+    function t.shutdown()
+        session:shutdown()
     end
 
     function t.supports(_capability)

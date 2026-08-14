@@ -28,7 +28,8 @@ STAGE    = .build
 # RUNTIME — exactly what KOReader loads (the lean release).
 RUNTIME = _meta.lua main.lua insert_menu.lua LICENSE \
           syncery_i18n.lua syncery_settings.lua syncery_storage_mode.lua \
-          syncery_util.lua syncery_update.lua \
+          syncery_util.lua syncery_update.lua syncery_debuglog.lua \
+          syncery_db_sync.lua syncery_db_sync_unify.lua \
           syncery_ann syncery_lifecycle syncery_migration syncery_progress \
           syncery_transports syncery_ui locale
 

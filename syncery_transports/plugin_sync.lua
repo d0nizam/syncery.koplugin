@@ -655,28 +655,25 @@ local function _validateAndPlace(content, final_path)
     return true
 end
 
---- Constraint I/O/P: download one kind for one book_id from the Cloud
---- Storage+ provider into a temp path, validate, then rename into place.
+--- Constraint I/O/P: download one kind for one book_id through the Cloud I/O
+--- facade into a temp path, validate, then rename into place.
 --- io.open(tmp_path, "w") inside downloadFile creates/truncates tmp_path,
 --- never final_path -- a failed/interrupted download only ever leaves
 --- garbage at tmp_path, never where a later existence check looks.
 ---
 --- @return boolean ok, string|nil err
-local function _downloadAndValidate(plugin, provider, server, book_id, kind)
+local function _downloadAndValidate(plugin, cloud_io, book_id, kind)
     local prefetch_dir = plugin.state_dir .. "cloud_staging/prefetch/"
     require("util").makePath(prefetch_dir)  -- Constraint P: mkdir -p, no-op if it exists
 
     local filename   = "syncery-" .. kind .. "-" .. book_id .. ".json"
-    local remote_url = server.url .. "/" .. filename  -- Constraint O: matches
-                                                        -- the existing manifest-
-                                                        -- download convention
     local final_path = prefetch_dir .. filename
     local tmp_path    = final_path .. ".tmp"
 
-    local code = provider.downloadFile(remote_url, tmp_path)
-    if code ~= 200 then
+    local ok_download, download_err = cloud_io:download_cloud_file(filename, tmp_path)
+    if not ok_download then
         os.remove(tmp_path)
-        return false, "download failed: " .. tostring(code)
+        return false, "download failed: " .. tostring(download_err)
     end
     local f = io.open(tmp_path, "rb")
     if not f then return false, "cannot open downloaded temp file" end
@@ -694,28 +691,6 @@ PluginSync._isSafeBookId       = _isSafeBookId
 PluginSync._groupRemoteEntries = _groupRemoteEntries
 PluginSync._validateAndPlace   = _validateAndPlace
 PluginSync._downloadAndValidate = _downloadAndValidate
-
---- BUGFIX:
---- WebDav.listFolder's own hasProvider filter
---- (plugins/cloudstorage.koplugin/providers/webdav.lua) silently drops any
---- entry with no registered DocumentRegistry provider unless
---- G_reader_settings "show_unsupported" is true. ".txt" (manifest files)
---- already has a registered provider, so that discovery path was never
---- affected and looked like it "just worked" -- but ".json"
---- (progress/annotations) has none, so prefetch's own entries were
---- silently invisible for any user who had not manually enabled this
---- KOReader-wide setting. Borrow the setting for exactly this one call,
---- restore immediately after (pcall-protected around the call itself, so
---- an error inside listFolder cannot skip the restore) -- correct the one
---- call that needs it instead of changing global behavior permanently.
-local function _listFolderShowingUnsupported(gset, provider, url, include_folders)
-    local prev = gset and gset:isTrue("show_unsupported")
-    if gset then gset:saveSetting("show_unsupported", true) end
-    local ok, entries = pcall(provider.listFolder, url, include_folders)
-    if gset then gset:saveSetting("show_unsupported", prev) end
-    return ok, entries
-end
-PluginSync._listFolderShowingUnsupported = _listFolderShowingUnsupported
 
 
 --- Constraint C, corrected after real-device testing: this used to
@@ -1130,7 +1105,7 @@ end
 
 --- Constraints S/T (design), corrected during implementation: reuses the
 --- EXISTING unified dispatch (cloud/transport.lua's cloud_sync, reached
---- via orch:pull_book), the exact same pattern the existing "manifest"
+--- through Bridge's semantic prefetch operation), the exact same pattern the existing "manifest"
 --- kind already demonstrates -- NOT a hand-rolled SyncServiceAdapter
 --- construction, which the design's earlier revisions assumed was
 --- necessary before this implementation found otherwise. Bootstraps an
@@ -1155,18 +1130,13 @@ end
 --- the REAL kind ("progress"/"annotations", matching what a genuine
 --- push writes), and signal the prefetch-vs-canonical routing via a
 --- SEPARATE is_prefetch flag on the payload instead of overloading kind.
-local function _prefetchViaFallback(plugin, orch, book_id, kind)
+local function _prefetchViaFallback(plugin, cloud_io, book_id, kind)
     local content = (kind == "progress")
         and ProgressStateStore.empty_envelope_json()
         or StateStore.empty_envelope_json()
-    orch:pull_book("__prefetch__", {
-        payload = { kind = kind, book_id = book_id, content = content, is_prefetch = true },
-    }, function(results)
-        -- Fire-and-forget from this call's point of view -- errors are
-        -- already logged inside the merge callback / cloud_sync itself;
-        -- nothing further to reconcile here (unlike the manifest case,
-        -- there is no local file for this caller to read back).
-    end)
+    -- Prefetch uses the same semantic fallback operation as ordinary cloud
+    -- sync, but with an explicit routing bit understood by transport.lua.
+    cloud_io:pull_cloud_prefetch(book_id, kind, content)
 end
 PluginSync._prefetchViaFallback = _prefetchViaFallback
 
@@ -1227,7 +1197,7 @@ function PluginSync.sync_all(plugin, opts)
             end
 
             -- Everything below runs inside its OWN pcall so that every
-            -- early-return path (no server configured, no orch, listFolder
+            -- early-return path (no cloud destination, no facade, listFolder
             -- failure, etc.) and any error still falls through to the
             -- Trapper:reset() right after -- otherwise whichever progress
             -- message was last shown (e.g. "Checking device 2/2...") is
@@ -1269,23 +1239,17 @@ function PluginSync.sync_all(plugin, opts)
 
             -- Phase 2: Pull via Merkle manifest
             local Settings = require("syncery_settings")
-            local server = Settings.get_cloud_server()
-            if not server then
-                return
-            end
-
+            local cloud_io = plugin._transport
+            if not cloud_io then return end
             local listM = require("syncery_transports/cloud/list")
-            local CSProvider = require("syncery_transports/cloud/providers/cloudstorage_provider")
-            local cs = CSProvider.resolve_ui_instance(plugin.ui)
             local Util = require("syncery_util")
             local my_device = Util.get_device_id()
             local cjson = require("json")
+            local direct_io = cloud_io:cloud_direct_available()
 
-            if not cs then
-                -- Fallback: no Cloud Storage+ plugin
-                local orch = plugin._transport and plugin._transport._orch
-                if not orch then return end
-
+            if not direct_io then
+                -- Fallback: direct Cloud storage+ file I/O is unavailable.
+                -- Manifests and prefetch still use semantic Bridge operations.
                 -- 2a. Generate and upload manifest via transport
                 local my_manifest = listM.generateManifest(plugin)
                 local fb_files_hash = nil
@@ -1323,9 +1287,7 @@ function PluginSync.sync_all(plugin, opts)
                         local manifest_json = cjson.encode(my_manifest)
                         local manifest_path = staging_dir .. "syncery-manifest-" .. my_device .. ".txt"
                         local fh = io.open(manifest_path, "wb"); if fh then fh:write(manifest_json); fh:close() end
-                        orch:push_book("__manifest__", {
-                            payload = { kind = "manifest", book_id = my_device, content = manifest_json }
-                        }, { force = true })
+                        cloud_io:push_cloud_manifest(my_device, manifest_json)
                     end
                     if _G.SYNCERY_DEBUG_LOG then
                         local file_count = 0
@@ -1396,9 +1358,7 @@ function PluginSync.sync_all(plugin, opts)
                         break
                     end
                     local remote_manifest = nil
-                    orch:pull_book("__manifest__", {
-                        payload = { kind = "manifest", book_id = device_id, content = "{}" }
-                    }, function(results)
+                    cloud_io:pull_cloud_manifest(device_id, "{}", function(results)
                         local manifest_path = staging_dir .. "syncery-manifest-" .. device_id .. ".txt"
                         local fh = io.open(manifest_path, "rb")
                         if fh then
@@ -1493,8 +1453,8 @@ function PluginSync.sync_all(plugin, opts)
                                     local_ctx(staged_progress .. "\0" .. staged_annotations)
                                     local local_hash_combined = local_ctx()
                                     if local_hash_combined ~= remote_hash then
-                                        _prefetchViaFallback(plugin, orch, book_id, "progress")
-                                        _prefetchViaFallback(plugin, orch, book_id, "annotations")
+                                        _prefetchViaFallback(plugin, cloud_io, book_id, "progress")
+                                        _prefetchViaFallback(plugin, cloud_io, book_id, "annotations")
                                     end
                                 end
                             end
@@ -1541,15 +1501,8 @@ function PluginSync.sync_all(plugin, opts)
                 return
             end
 
-            -- Plugin path: Cloud Storage+ available
-            if not cs.providers and cs.getProviders then cs:getProviders() end
-            local provider = cs.providers and cs.providers[server.type]
-            if not provider then return end
-            provider.base = server
-
-            -- Refresh Dropbox access token (no-op for WebDAV/FTP)
-            pcall(function() provider:genAccessToken() end)
-
+            -- Direct Cloud storage+ path. CloudSession owns the live server,
+            -- private runtime, provider execution state and OAuth refresh.
             -- 2a. Generate and upload OUR manifest
             local my_manifest = listM.generateManifest(plugin)
             local pl_files_hash = nil
@@ -1582,7 +1535,7 @@ function PluginSync.sync_all(plugin, opts)
                 end
                 pl_skip_upload = (cached_our_hash == pl_files_hash)
                 if not pl_skip_upload then
-                    listM.uploadManifest(plugin, provider, server, my_manifest)
+                    listM.uploadManifest(plugin, cloud_io, my_manifest)
                 end
                 if _G.SYNCERY_DEBUG_LOG then
                     local file_count = 0
@@ -1604,17 +1557,9 @@ function PluginSync.sync_all(plugin, opts)
                 end
             end
 
-                --- BUGFIX:
-                --- WebDav.listFolder's own hasProvider filter
-                --- (plugins/cloudstorage.koplugin/providers/webdav.lua) silently drops any
-                --- entry with no registered DocumentRegistry provider unless
-                --- G_reader_settings "show_unsupported" is true. ".txt" (manifest files)
-                --- already has a registered provider, so that discovery path was never
-                -- (See _listFolderShowingUnsupported near the other module-level helpers.)
-
             -- 2b. List cloud directory for all manifest files
-            local ok_list, entries = _listFolderShowingUnsupported(
-                G_reader_settings, provider, server.url, true)
+            local entries = cloud_io:list_cloud_folder(true)
+            local ok_list = entries ~= nil
             if _G.SYNCERY_DEBUG_LOG then
                 _G.SYNCERY_DEBUG_LOG.list_folder_result(ok_list, entries and #entries or 0)
             end
@@ -1676,7 +1621,7 @@ function PluginSync.sync_all(plugin, opts)
                                 _("Prefetching book %d/%d (%s)..."),
                                 i, #candidate_ids, kind))
                             local ok_dl, err_dl = _downloadAndValidate(
-                                plugin, provider, server, book_id, kind)
+                                plugin, cloud_io, book_id, kind)
                             if _G.SYNCERY_DEBUG_LOG then
                                 _G.SYNCERY_DEBUG_LOG.prefetch_download_result(book_id, kind, ok_dl, err_dl)
                             end
@@ -1712,7 +1657,7 @@ function PluginSync.sync_all(plugin, opts)
                 if not info_fn(string.format(_("Checking device %d/%d..."), pi, #peer_ids)) then
                     break
                 end
-                local remote = listM.downloadManifest(plugin, provider, server, device_id)
+                local remote = listM.downloadManifest(plugin, cloud_io, device_id)
                 if _G.SYNCERY_DEBUG_LOG then
                     _G.SYNCERY_DEBUG_LOG.download_manifest_result(
                         device_id, remote ~= nil, remote and remote.files

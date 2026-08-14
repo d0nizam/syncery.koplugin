@@ -10,6 +10,11 @@ local M = {}
 
 local logger = require("logger")
 
+local function safe_device_id(device_id)
+    return type(device_id) == "string"
+        and device_id:match("^%w[%w_-]*$") ~= nil
+end
+
 --- Walk cloud_staging/, collect progress + annotations content per book,
 --- hash the combined content, and return a manifest table.
 function M.generateManifest(plugin)
@@ -80,7 +85,10 @@ function M.generateManifest(plugin)
         files = files,
     }
 end
-function M.uploadManifest(plugin, provider, server, manifest)
+function M.uploadManifest(plugin, cloud_io, manifest)
+    if type(manifest) ~= "table" or not safe_device_id(manifest.device_id) then
+        return false, "invalid_device_id"
+    end
     logger.info("Syncery: uploadManifest for device " .. tostring(manifest.device_id))
     local staging = plugin.state_dir .. "cloud_staging/"
     local temp_path = staging .. "syncery-manifest-" .. manifest.device_id .. ".txt"
@@ -92,35 +100,37 @@ function M.uploadManifest(plugin, provider, server, manifest)
     local fh, err = io.open(temp_path, "wb")
     if not fh then
         logger.warn("Syncery: cannot write manifest temp file:", err)
-        return
+        return false, "cannot_write_manifest"
     end
     fh:write(json_str)
     fh:close()
 
-    local prev = provider.base
-    provider.base = server
-    local ok, code = pcall(provider.uploadFile, server.url, temp_path, nil, true)
-    provider.base = prev
-
+    local ok_call, uploaded, upload_err = pcall(function()
+        return cloud_io:upload_cloud_file(temp_path)
+    end)
     os.remove(temp_path)
-    logger.info("Syncery: manifest upload ok")
-
-    if not ok or code ~= 200 then
-        logger.warn("Syncery: manifest upload failed:", tostring(ok), code)
+    if not ok_call or not uploaded then
+        local reason = ok_call and upload_err or uploaded
+        logger.warn("Syncery: manifest upload failed:", tostring(reason))
+        return false, reason or "upload_failed"
     end
+    logger.info("Syncery: manifest upload ok")
+    return true, nil
 end
 
 --- Download a remote device's manifest from the cloud.
-function M.downloadManifest(plugin, provider, server, device_id)
+function M.downloadManifest(plugin, cloud_io, device_id)
     logger.info("Syncery: downloadManifest for device " .. tostring(device_id))
+    if not safe_device_id(device_id) then return nil end
     local staging = plugin.state_dir .. "cloud_staging/"
     local temp_path = staging .. "syncery-manifest-remote.txt"
 
     local remote_name = "syncery-manifest-" .. device_id .. ".txt"
-    local remote_url = server.url .. "/" .. remote_name
-    local ok, code, etag = pcall(provider.downloadFile, remote_url, temp_path)
+    local ok_call, downloaded = pcall(function()
+        return cloud_io:download_cloud_file(remote_name, temp_path)
+    end)
 
-    if not ok or code ~= 200 then
+    if not ok_call or not downloaded then
         os.remove(temp_path)
         return nil
     end

@@ -188,10 +188,12 @@ _db_sync_tick = function()
             or inst:_isCloudReachable()
         if reachable then
             xpcall(function()
-                if inst and type(inst._unifyDbSyncConfig) == "function" then
-                    inst:_unifyDbSyncConfig()                  -- Tier 2: assert unified config first
+                local report
+                if inst and type(inst._runDbSync) == "function" then
+                    report = inst:_runDbSync(active_ui)        -- unify/refresh, then dispatch
+                else
+                    report = DbSync.run({ ui = active_ui, settings = Settings, gset = G_reader_settings, send_event = _dbSyncSendEvent })
                 end
-                local report = DbSync.run({ ui = active_ui, settings = Settings, gset = G_reader_settings, send_event = _dbSyncSendEvent })
                 if inst and type(inst._surfaceDbSyncReport) == "function" then
                     inst:_surfaceDbSyncReport(report, false)   -- de-duped (periodic)
                 end
@@ -3353,9 +3355,12 @@ end
 -- design §11.3) so all three sync to one place.  Idempotent + change-detected:
 -- a no-op when a plugin already points at the target; on a genuine change it
 -- overwrites the field and drops that DB's stale `.sync` so the next sync is a
--- clean full re-sync.  Runs only for plugins that are LOADED (their settings
--- table exists); an FTP or unset target is refused by ConfigUnify.decide.  Both
--- gates (master + unify) are checked here, so callers may invoke it freely.
+-- clean full re-sync.  A Dropbox descriptor consumed in-place by KOReader is
+-- refreshed even when it still routes to the same destination; that repair
+-- deliberately keeps `.sync`.  Runs only for plugins that are LOADED (their
+-- settings table exists); an FTP, unset, or legacy-poisoned Syncery target is
+-- refused by ConfigUnify.decide.  Both gates (master + unify) are checked here,
+-- so callers may invoke it freely.
 function Syncery:_unifyDbSyncConfig()
     if not Settings.get_db_sync_enabled() then return end   -- master gate
     if not Settings.get_db_sync_unify()   then return end   -- Tier 2 opt-in (default OFF)
@@ -3379,6 +3384,20 @@ function Syncery:_unifyDbSyncConfig()
             end
         end
     end
+end
+
+-- Single entry point for sibling DB sync.  The ordering is an invariant:
+-- repair/assert the unified descriptors immediately before the plugin events
+-- can hand those tables to KOReader's mutating Dropbox provider.  Both the
+-- periodic timer and manual Sync now use this path.
+function Syncery:_runDbSync(ui)
+    self:_unifyDbSyncConfig()
+    return DbSync.run({
+        ui = ui or self.ui,
+        settings = Settings,
+        gset = G_reader_settings,
+        send_event = _dbSyncSendEvent,
+    })
 end
 
 -- Close-time annotation delivery (G).  Fires on EVERY doc_settings save, so it
@@ -3405,7 +3424,7 @@ function Syncery:syncNow()
     -- Vocabulary Builder).  Transport-independent (they use their own cloud, not
     -- Syncery's) and inert when the DB-sync master is OFF -- safe to run before
     -- the transport guards below.
-    local _ok_dbrun, _db_report = pcall(DbSync.run, { ui = self.ui, settings = Settings, gset = G_reader_settings, send_event = _dbSyncSendEvent })
+    local _ok_dbrun, _db_report = pcall(self._runDbSync, self, self.ui)
     if _ok_dbrun then self:_surfaceDbSyncReport(_db_report, true) end   -- manual -> always answer
     -- Guard the silent no-op cases: "Sync now" is reachable by tap and by
     -- gesture, and with no transport (or nothing enabled to sync) the work

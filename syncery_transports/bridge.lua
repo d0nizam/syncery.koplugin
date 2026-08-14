@@ -201,6 +201,106 @@ end
 
 
 -- ----------------------------------------------------------------------------
+-- Cloud capabilities.
+--
+-- Direct Cloud storage+ file I/O and the fallback manifest protocol both stay
+-- behind this facade.  Callers never receive a persisted/live server record,
+-- a raw provider, provider.base, or the orchestrator itself.
+-- ----------------------------------------------------------------------------
+
+
+function Bridge:_cloud_transport()
+    return self._orch:find_transport("cloud")
+end
+
+
+function Bridge:cloud_direct_available()
+    local t = self:_cloud_transport()
+    if not t or type(t.cloud_direct_available) ~= "function" then
+        return false, "not_available"
+    end
+    return t.cloud_direct_available()
+end
+
+
+function Bridge:list_cloud_folder(include_folders)
+    local t = self:_cloud_transport()
+    if not t or type(t.cloud_list_folder) ~= "function" then
+        return nil, "not_available"
+    end
+    return t.cloud_list_folder(include_folders)
+end
+
+
+function Bridge:upload_cloud_file(local_path)
+    local t = self:_cloud_transport()
+    if not t or type(t.cloud_upload_file) ~= "function" then
+        return false, "not_available"
+    end
+    return t.cloud_upload_file(local_path)
+end
+
+
+function Bridge:download_cloud_file(remote_name, local_path)
+    local t = self:_cloud_transport()
+    if not t or type(t.cloud_download_file) ~= "function" then
+        return false, "not_available"
+    end
+    return t.cloud_download_file(remote_name, local_path)
+end
+
+
+--- Dispatch a manifest through the semantic cloud-sync fallback.  This is
+--- intentionally not direct file I/O: syncservice performs the merge via the
+--- ordinary cloud transport when Cloud storage+ is unavailable.
+function Bridge:push_cloud_manifest(device_id, content)
+    local t = self:_cloud_transport()
+    if not t or type(t.is_available) ~= "function" or not t.is_available() then
+        return false, "not_available"
+    end
+    self._orch:push_book("__manifest__", {
+        payload = { kind = "manifest", book_id = device_id, content = content },
+    }, { force = { cloud = true } })
+    return true, nil
+end
+
+
+function Bridge:pull_cloud_manifest(device_id, bootstrap_content, callback)
+    local t = self:_cloud_transport()
+    if not t or type(t.is_available) ~= "function" or not t.is_available() then
+        if callback then callback({}) end
+        return false, "not_available"
+    end
+    self._orch:pull_book("__manifest__", {
+        payload = {
+            kind = "manifest",
+            book_id = device_id,
+            content = bootstrap_content or "{}",
+        },
+    }, callback or function() end)
+    return true, nil
+end
+
+
+function Bridge:pull_cloud_prefetch(book_id, kind, bootstrap_content, callback)
+    local t = self:_cloud_transport()
+    if not t or type(t.is_available) ~= "function" or not t.is_available() then
+        if callback then callback({}) end
+        return false, "not_available"
+    end
+    self._orch:pull_book("__prefetch__", {
+        payload = {
+            kind = kind,
+            book_id = book_id,
+            content = bootstrap_content,
+            is_prefetch = true,
+        },
+    }, callback or function() end)
+    return true, nil
+end
+
+
+-- ----------------------------------------------------------------------------
 -- Syncthing-specific helpers.
 --
 -- These are NOT part of the uniform push/pull interface.  They exist
@@ -571,6 +671,10 @@ end
 
 --- Shutdown — proxies through.  main.lua's teardown calls this.
 function Bridge:shutdown()
+    local t = self:_cloud_transport()
+    if t and type(t.shutdown) == "function" then
+        pcall(t.shutdown)
+    end
     self._orch:shutdown()
 end
 

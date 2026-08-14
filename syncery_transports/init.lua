@@ -41,6 +41,8 @@ local Orchestrator      = require("syncery_transports/orchestrator")
 local Bridge            = require("syncery_transports/bridge")
 local SyncthingTransport = require("syncery_transports/syncthing/transport")
 local CloudTransport    = require("syncery_transports/cloud/transport")
+local CloudSession      = require("syncery_transports/cloud/session")
+local Settings          = require("syncery_settings")
 local Log               = require("syncery_transports/log")
 local log               = Log.tag("transports.factory")
 
@@ -87,16 +89,30 @@ function M.build(opts)
 
     try_add("syncthing", function() return SyncthingTransport.new({}) end)
     try_add("cloud",     function()
-        -- pass the cloudstorage resolver so the Cloud transport's
-        -- provider selector can reach hius07's "Cloud storage+" plugin
-        -- (ui.cloudstorage) when the user picks that backend. nil in
-        -- production until main.lua supplies it; nil is safe (the cloudstorage
-        -- backend reports unavailable and the selector falls back to syncservice).
-        return CloudTransport.new({
-            ui_cloudstorage_resolver = opts.ui_cloudstorage_resolver,
-            on_server_responded      = opts.on_server_responded,
-            on_reconciled            = opts.on_reconciled,
+        -- One long-lived CloudSession owns the executable server copy, the
+        -- selected backend and all direct provider calls.  The transport only
+        -- stages payloads and delegates operations to this boundary.
+        local session_factory = opts.cloud_session_factory or CloudSession.new
+        local session = session_factory({
+            settings_api              = opts.settings_api or Settings,
+            select_provider           = opts.select_provider,
+            ui_cloudstorage_resolver  = opts.ui_cloudstorage_resolver,
+            sync_service              = opts.sync_service,
+            now                       = opts.now,
+            global_settings           = opts.global_settings,
         })
+        local ok_transport, transport_or_err = pcall(CloudTransport.new, {
+            session             = session,
+            on_server_responded = opts.on_server_responded,
+            on_reconciled       = opts.on_reconciled,
+        })
+        if not ok_transport then
+            if session and type(session.shutdown) == "function" then
+                pcall(function() session:shutdown() end)
+            end
+            error(transport_or_err)
+        end
+        return transport_or_err
     end)
 
     local orch, orch_err = Orchestrator.new({
@@ -104,6 +120,11 @@ function M.build(opts)
         on_status_change = opts.on_status_change,
     })
     if not orch then
+        for _, transport in ipairs(transports) do
+            if type(transport.shutdown) == "function" then
+                pcall(transport.shutdown)
+            end
+        end
         error("Transports.build: orchestrator init failed: " .. tostring(orch_err))
     end
 
