@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.2.4.1] — 2026-08-19
+
+### Added
+i18n: Russian Language translation 
+(PR #23 by iav)
 
 ## [v1.2.4] — 2026-08-14
 
