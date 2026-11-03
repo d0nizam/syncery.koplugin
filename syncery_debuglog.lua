@@ -375,6 +375,24 @@ function impl.do_cloud_upload_result(file, result)
         tostring(file), tostring(result)))
 end
 
+
+--- Cloud reachability gate snapshot: records why an upload was allowed/deferred.
+function impl.cloud_reachability_gate(result, network_mgr_ok, link_connected, verdict, verdict_age, ttl, probing, cached_host, cached_ip, cached_port)
+    emit(string.format(
+        "Syncery[DEBUG] cloud_reachability_gate result=%s network_mgr_ok=%s link_connected=%s verdict=%s verdict_age=%s ttl=%s probing=%s cached_host=%s cached_ip=%s cached_port=%s",
+        tostring(result), tostring(network_mgr_ok), tostring(link_connected), tostring(verdict),
+        tostring(verdict_age), tostring(ttl), tostring(probing), tostring(cached_host),
+        tostring(cached_ip), tostring(cached_port)))
+end
+
+--- Non-blocking TCP probe lifecycle and result.
+function impl.cloud_reachability_probe(event, cached_host, cached_ip, cached_port, probing, verdict, detail)
+    emit(string.format(
+        "Syncery[DEBUG] cloud_reachability_probe event=%s host=%s ip=%s port=%s probing=%s verdict=%s detail=%s",
+        tostring(event), tostring(cached_host), tostring(cached_ip), tostring(cached_port),
+        tostring(probing), tostring(verdict), tostring(detail)))
+end
+
 --- Summarize a progress-shape ({entries=...}) or annotation-envelope-shape
 --- ({annotations=..., metadata=..., render_settings=...}) state table for
 --- logging: counts per top-level section, without dumping full content.
