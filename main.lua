@@ -3647,23 +3647,42 @@ end
 -- I/O (luasocket / UIManager) is unavailable.  Syncthing keeps `_isNetworkOnline`
 -- (it talks to localhost — internet reachability must NOT gate it).
 function Syncery:_isCloudReachable()
-    -- Cheap, NON-BLOCKING link pre-check.  `isConnected` reads link state only
-    -- (no DNS, unlike the old `isOnline`), so it stays off the blocking path.
-    -- Not even associated -> defer without consulting the verdict; this also
-    -- avoids dispatching a doomed transfer at cold start, before any event or
-    -- probe has run, when the link is already down.
+    -- Diagnostic snapshot is intentionally emitted at the same decision point
+    -- as the gate, so a deferred upload can be tied to the exact cached state.
     local ok, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok and NetworkMgr and type(NetworkMgr.isConnected) == "function"
-            and not NetworkMgr:isConnected() then
-        return false
+    local link_connected = nil
+    if ok and NetworkMgr and type(NetworkMgr.isConnected) == "function" then
+        local connected_ok, connected = pcall(NetworkMgr.isConnected, NetworkMgr)
+        if connected_ok then link_connected = connected and true or false end
+        if connected_ok and not link_connected then
+            if _G.SYNCERY_DEBUG_LOG then
+                _G.SYNCERY_DEBUG_LOG.cloud_reachability_gate(false, ok, link_connected,
+                    self._cloud_reachability and self._cloud_reachability.verdict,
+                    nil, self._cloud_reachability and self._cloud_reachability.ttl,
+                    self._cloud_reachability and self._cloud_reachability.probing,
+                    self._cloud_reachability and self._cloud_reachability.cached_host,
+                    self._cloud_reachability and self._cloud_reachability.cached_ip,
+                    self._cloud_reachability and self._cloud_reachability.cached_port)
+            end
+            return false
+        end
     end
 
-    -- Otherwise consult the async reachability verdict (cached; never blocks on
-    -- DNS).  The verdict is moved by transfer outcomes (note_success), the
-    -- NetworkConnected/Disconnected handlers, and a non-blocking probe; see
-    -- _cloud_reachability.  Absent instance (defensive) -> fail open.
-    if not self._cloud_reachability then return true end
-    return self._cloud_reachability:is_reachable()
+    if not self._cloud_reachability then
+        if _G.SYNCERY_DEBUG_LOG then
+            _G.SYNCERY_DEBUG_LOG.cloud_reachability_gate(true, ok, link_connected, "no_instance")
+        end
+        return true
+    end
+
+    local cr = self._cloud_reachability
+    local age = cr.verdict_at and (cr.now() - cr.verdict_at) or nil
+    local reachable = cr:is_reachable()
+    if _G.SYNCERY_DEBUG_LOG then
+        _G.SYNCERY_DEBUG_LOG.cloud_reachability_gate(reachable, ok, link_connected,
+            cr.verdict, age, cr.ttl, cr.probing, cr.cached_host, cr.cached_ip, cr.cached_port)
+    end
+    return reachable
 end
 
 -- ----------------------------------------------------------------------------
