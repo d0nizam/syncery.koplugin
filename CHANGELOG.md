@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.2.5] — 2026-11-05
+
+### Fixed
+
+Fix cloud reachability after DDNS IP changes- #26 by @giubba88
+
 ## [v1.2.4.1] — 2026-08-19
 
 ### Added
