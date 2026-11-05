@@ -82,6 +82,13 @@ local DEFAULT_PROBE_TIMEOUT = 2       -- the non-blocking connect gives up after
 local DEFAULT_POLL_INTERVAL = 0.25    -- gap between instant select(0) polls
 local DEFAULT_IP_TTL        = 1800    -- re-resolve the cached IP after this (catches a moved server)
 
+local function debug_probe(self, event, detail)
+    if _G.SYNCERY_DEBUG_LOG and _G.SYNCERY_DEBUG_LOG.cloud_reachability_probe then
+        _G.SYNCERY_DEBUG_LOG.cloud_reachability_probe(event, self.cached_host, self.cached_ip,
+            self.cached_port, self.probing, self.verdict, detail)
+    end
+end
+
 
 --- @param deps table  see the module header
 --- @return table  a CloudReachability instance
@@ -259,11 +266,18 @@ end
 -- ----------------------------------------------------------------------------
 
 function CloudReachability:_start_probe()
-    if self.probing then return end
-    if not self.cached_ip then return end
+    if self.probing then
+        debug_probe(self, "already_probing")
+        return
+    end
+    if not self.cached_ip then
+        debug_probe(self, "skipped_no_cached_ip")
+        return
+    end
     if type(self.connect_start) ~= "function"
             or type(self.connect_poll) ~= "function"
             or type(self.schedule) ~= "function" then
+        debug_probe(self, "skipped_probe_dependencies_missing")
         return                          -- no probe I/O (headless) -> verdict stays as is
     end
 
@@ -274,19 +288,26 @@ function CloudReachability:_start_probe()
         local _, p = Reachability.host_port_for(self.get_server())
         port = p
     end
-    if not port then return end
+    if not port then
+        debug_probe(self, "skipped_no_port")
+        return
+    end
 
+    self.cached_port = port
+    debug_probe(self, "start")
     local handle = self.connect_start(self.cached_ip, port)
     if not handle then
         -- Could not even begin the connect -> treat as unreachable.
         self.verdict    = "unreachable"
         self.verdict_at = self.now()
+        debug_probe(self, "connect_start_failed", "connect_start returned nil")
         return
     end
 
     self.probing        = true
     self.probe_handle   = handle
     self.probe_deadline = self.now() + self.probe_timeout
+    debug_probe(self, "started")
     self.schedule(self.poll_interval, function() self:_poll_probe() end)
 end
 
@@ -294,6 +315,7 @@ function CloudReachability:_poll_probe()
     if not self.probing then return end
 
     local r = self.connect_poll(self.probe_handle)
+    debug_probe(self, "poll", r)
     if r == "ok" then
         self:_finish_probe("reachable")
     elseif r == "fail" then
@@ -308,13 +330,54 @@ function CloudReachability:_poll_probe()
 end
 
 function CloudReachability:_finish_probe(verdict)
-    self.verdict    = verdict
-    self.verdict_at = self.now()
+    -- Close and clear the old socket before any recovery work.  In particular,
+    -- a failed probe may mean that the persisted DNS address is stale (for
+    -- example a DDNS hostname changed its public IPv4 address while this
+    -- device was away from home).
     if type(self.connect_close) == "function" and self.probe_handle then
         self.connect_close(self.probe_handle)
     end
     self.probing      = false
     self.probe_handle = nil
+    self.probe_deadline = nil
+
+    if verdict == "unreachable" then
+        local host, port = Reachability.host_port_for(
+            type(self.get_server) == "function" and self.get_server() or nil
+        )
+        if host and type(self.resolve) == "function" then
+            debug_probe(self, "dns_refresh_start", "probe_failed")
+            local ok, refreshed_ip = pcall(self.resolve, host)
+            if ok and refreshed_ip and refreshed_ip ~= "" then
+                local old_ip = self.cached_ip
+                self.cached_host = host
+                self.cached_port = port
+                if refreshed_ip ~= old_ip then
+                    self.cached_ip = refreshed_ip
+                    self.cached_ip_at = self.now()
+                    self.verdict = "unknown"
+                    self.verdict_at = nil
+                    if type(self.persist_ip) == "function" then
+                        self.persist_ip(host, refreshed_ip)
+                    end
+                    debug_probe(self, "dns_refresh_changed", tostring(old_ip) .. "->" .. tostring(refreshed_ip))
+                    -- Retry once against the freshly-resolved address.  This
+                    -- remains non-blocking and does not bypass the reachability
+                    -- gate; the next gate call waits for this probe's verdict.
+                    self:_start_probe()
+                    return
+                end
+                self.cached_ip_at = self.now()
+                debug_probe(self, "dns_refresh_unchanged", tostring(refreshed_ip))
+            else
+                debug_probe(self, "dns_refresh_failed", tostring(refreshed_ip or (ok and "nil" or refreshed_ip)))
+            end
+        end
+    end
+
+    self.verdict    = verdict
+    self.verdict_at = self.now()
+    debug_probe(self, "finished")
 end
 
 
